@@ -57,15 +57,41 @@
     const statusMsg = document.getElementById('status-msg');
     const debugInfo = document.getElementById('debug-info');
 
+    // データ項目名（列名）の不一致を回避するためのマップを定義
+    const FIELD_MAP = {
+        'timestamp': ['タイムスタンプ', 'Timestamp'],
+        'category': ['投稿の種類', 'カテゴリ', '投稿', '種類'], // 優先度の高い順に並べる
+        'title': ['タイトル', 'Title'],
+        'description': ['説明', 'Description'],
+        'date': ['開催日', 'Date'],
+        'timeStart': ['開始時刻', 'Start Time'],
+        'timeEnd': ['終了時刻', 'End Time'],
+        'location': ['開催場所', 'Location'],
+        'organizer': ['主催者', 'Organizer'],
+        'email': ['主催者のDCメールアドレス', '連絡先'],
+    };
+
+    // どの列が目的のデータなのかを特定するヘルパー関数
+    function getPostValue(post, keys) {
+        if (!post || !keys) return null;
+        for (const key of keys) {
+            // trim()を使って、ヘッダーに隠れた空白文字が含まれていても対応できるようにする
+            const trimmedKey = key.trim();
+            if (post[trimmedKey] !== undefined) {
+                return post[trimmedKey];
+            }
+        }
+        return null; // 見つからなかった場合
+    }
+
     Papa.parse(SHEET_CSV_URL, {
         download: true,
         header: true,
         skipEmptyLines: true,
         complete: function(results) {
             const data = results.data;
-            console.log("Fetched Data:", data);
-
-            if (data.length === 0 || !data.some(post => post['タイトル'])) {
+            
+            if (data.length === 0 || !data.some(post => getPostValue(post, FIELD_MAP.title))) {
                 statusMsg.innerHTML = 'まだ投稿がありません。<br>上のボタンから最初の投稿をしてみましょう！';
                 return;
             }
@@ -73,59 +99,54 @@
             statusMsg.style.display = 'none';
 
             data.reverse().forEach(post => {
-                const rawCategory = post['投稿の種類'];
                 
-                // 【最重要修正ポイント】文字列のクリーンアップ処理を追加
+                // 【最重要修正ポイント】列名が異なっても、定義したマップに基づいて値を取得
+                const rawCategory = getPostValue(post, FIELD_MAP.category);
+                const rawTitle = getPostValue(post, FIELD_MAP.title);
+                
+                // 投稿のタイトルがない場合はスキップ
+                if (!rawTitle) return;
+
+                // カテゴリの値とクラスの決定
                 let category = 'その他';
+                let catClass = 'cat-other'; 
+                
                 if (rawCategory) {
-                    // 1. 前後の空白文字を除去 (.trim())
-                    // 2. 内部の改行コードや制御文字を全て除去 (.replace(/\s/g, ''))
-                    // 3. 全て半角に変換 (normalize('NFKC')) ※全角スペース対策
-                    const cleanedCategory = rawCategory.trim().replace(/\s/g, '').normalize('NFKC');
+                    // 全て小文字化、前後の空白除去、内部の空白除去で、究極のクリーンアップ
+                    const cleanedCategory = rawCategory.toLowerCase().trim().replace(/\s/g, ''); 
 
-                    // 判定用の文字列を定義
-                    const EVENT_STR = 'イベント告知'.replace(/\s/g, '').normalize('NFKC');
-                    const RECRUIT_STR = '仲間募集'.replace(/\s/g, '').normalize('NFKC');
-
-                    if (cleanedCategory === EVENT_STR) {
-                        category = 'イベント告知';
-                    } else if (cleanedCategory === RECRUIT_STR) {
-                        category = '仲間募集';
+                    // 厳密な文字列比較を避け、キーワード検索（includes）に切り戻し、エラー耐性を上げる
+                    if (cleanedCategory.includes('イベント')) {
+                        category = rawCategory.trim(); // 表示は元の文字列 (空白除去のみ)
+                        catClass = 'cat-event';
+                    } else if (cleanedCategory.includes('募集')) {
+                        category = rawCategory.trim();
+                        catClass = 'cat-recruit';
                     } else {
-                        // クリーンアップした結果、それでも当てはまらない場合は、元の文字列をそのまま使用（表示はさせたい）
-                        category = rawCategory.trim(); 
+                        category = rawCategory.trim() || 'その他';
+                        catClass = 'cat-other';
                     }
                 }
                 
-                const timestamp = post['タイムスタンプ'] || post['Timestamp'];
-                const title = post['タイトル'];
-                const description = post['説明'] || ''; 
-                const date = post['開催日'] || '';
-                const timeStart = post['開始時刻'] || '';
-                const timeEnd = post['終了時刻'] || '';
-                const location = post['開催場所'] || '';
-                const organizer = post['主催者'] || '';
-                const email = post['主催者のDCメールアドレス'] || ''; 
-
-                if (!title) return;
-
-                // カテゴリクラスの定義（判定はクリーンアップ後の文字列を使用）
-                let catClass = 'cat-other';
-                if (category.includes('イベント告知')) { // includesに戻し、広めに判定
-                    catClass = 'cat-event';
-                } else if (category.includes('仲間募集')) {
-                    catClass = 'cat-recruit';
-                }
+                // その他のデータの取得
+                const timestamp = getPostValue(post, FIELD_MAP.timestamp);
+                const description = getPostValue(post, FIELD_MAP.description) || ''; 
+                const date = getPostValue(post, FIELD_MAP.date) || '';
+                const timeStart = getPostValue(post, FIELD_MAP.timeStart) || '';
+                const timeEnd = getPostValue(post, FIELD_MAP.timeEnd) || '';
+                const location = getPostValue(post, FIELD_MAP.location) || '';
+                const organizer = getPostValue(post, FIELD_MAP.organizer) || '';
+                const email = getPostValue(post, FIELD_MAP.email) || ''; 
 
                 let eventInfoHtml = '';
-                if (catClass === 'cat-event') { // クラス判定に合わせる
+                if (catClass === 'cat-event') {
                     eventInfoHtml = `<div class="event-info"><strong>日時:</strong> ${formatDate(date)} ${formatTime(timeStart)}〜${formatTime(timeEnd)}<br><strong>場所:</strong> ${escapeHtml(location)}</div>`;
                 }
 
                 const cardHtml = `
                     <div class="card ${catClass}">
                         <span class="tag ${catClass}">${escapeHtml(category)}</span>
-                        <h3>${escapeHtml(title)}</h3>
+                        <h3>${escapeHtml(rawTitle)}</h3>
                         ${eventInfoHtml}
                         <p>${escapeHtml(description)}</p>
                         <div class="meta">
@@ -140,9 +161,9 @@
         },
         error: function(err, file, inputElem, reason) {
             console.error("Papa Parse Error:", err);
-            statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">❌ 読み込みエラーが発生しました。</span>';
+            statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">❌ データ読み込みエラーが発生しました。</span>';
             debugInfo.style.display = 'block';
-            debugInfo.innerText = 'エラー詳細:\n' + JSON.stringify(err, null, 2) + '\n\n【ヒント】このURLでエラーが出る場合、GitHub PagesではCORSエラーが再度発生している可能性が高いです。プロキシ経由の設定（一つ前の回答）をお試しください。';
+            debugInfo.innerText = 'エラー詳細:\n' + JSON.stringify(err, null, 2) + '\n\n【ヒント】このURLでエラーが出る場合、GitHub PagesではCORSエラーが再発しています。プロキシ経由の設定をお試しください。';
         }
     });
 
