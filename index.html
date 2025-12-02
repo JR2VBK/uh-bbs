@@ -34,20 +34,8 @@
 
         #status-msg { text-align: center; margin-top: 20px; color: #666; }
         
-        /* デバッグ情報表示エリアのスタイル */
-        #debug-output { 
-            margin-top: 50px; 
-            padding: 20px; 
-            background-color: #fff3f3; 
-            border: 1px solid red; 
-            font-size: 0.85em; 
-            white-space: pre-wrap;
-            max-width: 1000px;
-            margin-left: auto;
-            margin-right: auto;
-            display: none; /* 最終版では非表示 */
-        }
-        #debug-output strong { color: darkred; }
+        /* デバッグ情報エリアは非表示に戻します */
+        #debug-output { display: none; }
     </style>
 </head>
 <body>
@@ -74,8 +62,8 @@
     // データ項目名（列名）の不一致を回避するためのマップを定義
     const FIELD_MAP = {
         'timestamp': ['タイムスタンプ', 'Timestamp'],
-        // 【最重要修正】アスタリスク付きの列名にも対応できるよう、候補にアスタリスク付きのものを追加
-        'category': ['投稿の種類', '投稿の種類*', 'カテゴリ', '投稿', '種類'], 
+        // 【最重要修正】アスタリスクとスペース込みの完全な列名を候補の最上位に追加
+        'category': ['投稿の種類* ', '投稿の種類*', '投稿の種類', 'カテゴリ', '投稿', '種類'], 
         'title': ['タイトル', 'Title'],
         'description': ['説明', 'Description'],
         'date': ['開催日', 'Date'],
@@ -90,13 +78,10 @@
     function getPostValue(post, keys) {
         if (!post || !keys) return null;
         for (const key of keys) {
-            // 列名に隠れた空白を無視して検索
-            const trimmedKey = key.trim();
-            // ★ keyが一致するか、key + '*'が一致するかをチェックする（アスタリスク対応）
-            if (post[trimmedKey] !== undefined) {
-                return post[trimmedKey];
-            } else if (post[trimmedKey + '*'] !== undefined) { 
-                return post[trimmedKey + '*'];
+            // 【決定的な修正】trim()を削除し、マップに定義されたキーをそのまま使用
+            // PapaParseが認識したキーが正確にヒットするようにする
+            if (post[key] !== undefined) {
+                return post[key];
             }
         }
         return null; // 見つからなかった場合
@@ -108,8 +93,6 @@
         skipEmptyLines: true,
         complete: function(results) {
             const data = results.data;
-            // デバッグ表示は最終版では非表示にする
-            debugOutput.style.display = 'none'; 
             
             if (data.length === 0 || !data.some(post => getPostValue(post, FIELD_MAP.title))) {
                 statusMsg.innerHTML = 'まだ投稿がありません。<br>上のボタンから最初の投稿をしてみましょう！';
@@ -129,6 +112,7 @@
                 // ----------------------------------------------------
                 // ★ 判定ロジック
                 // ----------------------------------------------------
+                // CSVの値をそのまま表示に使う (前後の空白のみ除去)
                 const category = (rawCategory && rawCategory.trim()) ? rawCategory.trim() : 'その他';
                 
                 // 分類のためのロジック (キーワード検索)
