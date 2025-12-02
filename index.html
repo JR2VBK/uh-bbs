@@ -51,18 +51,14 @@
 <div id="debug-output"></div>
 
 <script>
-    // プライベートアカウントのCSV URLを使用
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTiy8DeU1cTmxKwe3aqR8MnEg_C9uyhsG1UxD41IAOCofHuD3wxf050rGG_AYQdwUXndyHqRC0GkENM/pub?gid=457120589&single=true&output=csv';
     
     const board = document.getElementById('board');
     const statusMsg = document.getElementById('status-msg');
-    const debugOutput = document.getElementById('debug-output');
 
-    // データ項目名（列名）の不一致を回避するためのマップを定義
-    const FIELD_MAP = {
+    // 項目名マッピング（フォールバック用）
+    const FIELD_MAP_KEYS = {
         'timestamp': ['タイムスタンプ', 'Timestamp'],
-        // 投稿の種類* に続くスペースにも対応するよう、候補を最上位に追加しています
-        'category': ['投稿の種類* ', '投稿の種類*', '投稿の種類', 'カテゴリ', '投稿', '種類'], 
         'title': ['タイトル', 'Title'],
         'description': ['説明', 'Description'],
         'date': ['開催日', 'Date'],
@@ -74,15 +70,34 @@
     };
 
     // どの列が目的のデータなのかを特定するヘルパー関数
-    function getPostValue(post, keys) {
+    function getPostValue(post, keys, categoryKeyName) {
         if (!post || !keys) return null;
+        
+        // カテゴリは動的に特定したキーを最優先でチェックする
+        if (categoryKeyName && keys.includes('category') && post[categoryKeyName] !== undefined) {
+            return post[categoryKeyName];
+        }
+
         for (const key of keys) {
-            // PapaParseが認識したキーをそのまま使用し、データを探す
+            // マップに定義されたキーをそのまま使用し、データを探す
             if (post[key] !== undefined) {
                 return post[key];
             }
         }
         return null; // 見つからなかった場合
+    }
+
+    // ★★★ 投稿の種類（カテゴリ）の列名を動的に特定する関数 ★★★
+    function findCategoryKeyName(fields) {
+        if (!fields) return null;
+        for (const field of fields) {
+            // 列名を小文字化・スペース除去・アスタリスク除去して「投稿」または「種類」が含まれていれば特定
+            const cleanedField = field.replace(/\s/g, '').replace(/\*/g, '').toLowerCase();
+            if (cleanedField.includes('投稿') || cleanedField.includes('種類')) {
+                return field; // 実際のキー名（スペースやアスタリスクを含んだもの）を返す
+            }
+        }
+        return null;
     }
 
     Papa.parse(SHEET_CSV_URL, {
@@ -91,8 +106,13 @@
         skipEmptyLines: true,
         complete: function(results) {
             const data = results.data;
+            const headers = results.meta.fields;
+
+            // 【動的特定】実際のCSVヘッダーからカテゴリの列名を特定
+            const categoryKeyName = findCategoryKeyName(headers);
             
-            if (data.length === 0 || !data.some(post => getPostValue(post, FIELD_MAP.title))) {
+            // ページ表示に必要な最低限の項目チェック
+            if (data.length === 0 || !data.some(post => getPostValue(post, FIELD_MAP_KEYS.title, categoryKeyName))) {
                 statusMsg.innerHTML = 'まだ投稿がありません。<br>上のボタンから最初の投稿をしてみましょう！';
                 return;
             }
@@ -101,20 +121,18 @@
 
             data.reverse().forEach(post => {
                 
-                // 列名が異なっても、定義したマップに基づいて値を取得
-                const rawCategory = getPostValue(post, FIELD_MAP.category);
-                const rawTitle = getPostValue(post, FIELD_MAP.title);
+                // 【動的特定したキーを使用】
+                const rawCategory = categoryKeyName ? post[categoryKeyName] : getPostValue(post, ['投稿の種類', '投稿の種類*', 'カテゴリ'], categoryKeyName);
+                const rawTitle = getPostValue(post, FIELD_MAP_KEYS.title, categoryKeyName);
                 
-                // 【空欄対応】タイトルがない投稿はスキップ (最低限、タイトルは必須)
+                // 【空欄対応】タイトルがない投稿はスキップ
                 if (!rawTitle || rawTitle.trim() === '') return; 
 
                 // ----------------------------------------------------
                 // ★ 判定ロジック
                 // ----------------------------------------------------
-                // CSVの値をそのまま表示に使う (前後の空白のみ除去)
                 const category = (rawCategory && rawCategory.trim()) ? rawCategory.trim() : 'その他';
                 
-                // 分類のためのロジック (キーワード検索)
                 let catClass = 'cat-other';
                 const cleanedCategory = category.toLowerCase().replace(/\s/g, '');
 
@@ -126,15 +144,15 @@
                 
                 // ----------------------------------------------------
                 
-                // 【空欄対応】全てのデータ取得箇所で、|| '' を追加し、データが空の場合に空文字列として処理
-                const timestamp = getPostValue(post, FIELD_MAP.timestamp) || '';
-                const description = getPostValue(post, FIELD_MAP.description) || ''; 
-                const date = getPostValue(post, FIELD_MAP.date) || '';
-                const timeStart = getPostValue(post, FIELD_MAP.timeStart) || '';
-                const timeEnd = getPostValue(post, FIELD_MAP.timeEnd) || '';
-                const location = getPostValue(post, FIELD_MAP.location) || '';
-                const organizer = getPostValue(post, FIELD_MAP.organizer) || '';
-                const email = getPostValue(post, FIELD_MAP.email) || ''; 
+                // 【空欄対応】他のデータ取得
+                const timestamp = getPostValue(post, FIELD_MAP_KEYS.timestamp, categoryKeyName) || '';
+                const description = getPostValue(post, FIELD_MAP_KEYS.description, categoryKeyName) || ''; 
+                const date = getPostValue(post, FIELD_MAP_KEYS.date, categoryKeyName) || '';
+                const timeStart = getPostValue(post, FIELD_MAP_KEYS.timeStart, categoryKeyName) || '';
+                const timeEnd = getPostValue(post, FIELD_MAP_KEYS.timeEnd, categoryKeyName) || '';
+                const location = getPostValue(post, FIELD_MAP_KEYS.location, categoryKeyName) || '';
+                const organizer = getPostValue(post, FIELD_MAP_KEYS.organizer, categoryKeyName) || '';
+                const email = getPostValue(post, FIELD_MAP_KEYS.email, categoryKeyName) || ''; 
 
                 let eventInfoHtml = '';
                 if (catClass === 'cat-event') {
@@ -159,7 +177,7 @@
         },
         error: function(err, file, inputElem, reason) {
             console.error("Papa Parse Error:", err);
-            statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">❌ データ読み込みエラーが発生しました。</span>';
+            statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">❌ データ読み込みエラーが発生しました。Googleスプレッドシートの公開設定を確認してください。</span>';
         }
     });
 
