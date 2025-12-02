@@ -48,14 +48,18 @@
 <div id="debug-info"></div>
 
 <script>
-    // 【プロキシ無し】最初のGoogleスプレッドシートURL
-    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaMPsa2R0VATBEtNX3tg_4XTqnc1IB83rCIAWWxRgW8xws9VCB_1se2cJ7mzMMW9FuGOGXHRPNdRpZ/pub?gid=1927079189&single=true&output=csv';
+    // 1. Googleスプレッドシートの公開URL（大学アカウントのもの）
+    const ORIGINAL_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaMPsa2R0VATBEtNX3tg_4XTqnc1IB83rCIAWWxRgW8xws9VCB_1se2cJ7mzMMW9FuGOGXHRPNdRpZ/pub?gid=1927079189&single=true&output=csv';
     
+    // 2. 【プロキシ有効化】強力なプロキシサービス「corsproxy.io」を使用
+    //    GitHub PagesからのCORSブロックを回避します。
+    const PROXY_URL = 'https://corsproxy.io/?' + encodeURIComponent(ORIGINAL_URL);
+
     const board = document.getElementById('board');
     const statusMsg = document.getElementById('status-msg');
     const debugInfo = document.getElementById('debug-info');
 
-    Papa.parse(SHEET_CSV_URL, { // プロキシを使わず直接アクセス
+    Papa.parse(PROXY_URL, {
         download: true,
         header: true,
         skipEmptyLines: true,
@@ -71,7 +75,6 @@
             statusMsg.style.display = 'none';
 
             data.reverse().forEach(post => {
-                // 列名は、以前確認した正しいものを使用
                 const timestamp = post['タイムスタンプ'] || post['Timestamp'];
                 const category = post['投稿の種類'] || 'その他';
                 const title = post['タイトル'];
@@ -112,9 +115,9 @@
         },
         error: function(err, file, inputElem, reason) {
             console.error("Papa Parse Error:", err);
-            statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">❌ 読み込みエラーが発生しました。</span>';
+            statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">読み込みエラーが発生しました。</span>';
             debugInfo.style.display = 'block';
-            debugInfo.innerText = 'エラー詳細:\n' + JSON.stringify(err, null, 2) + '\n\n【予想される原因】: 大学アカウントのセキュリティ設定により、外部サイトからのデータ取得（CORS）がブロックされています。';
+            debugInfo.innerText = 'エラー詳細:\n' + JSON.stringify(err, null, 2) + '\n\n【ヒント】プロキシ経由の設定でもエラーが出る場合、Googleスプレッドシートの「ウェブに公開」設定を再確認してください。';
         }
     });
 
