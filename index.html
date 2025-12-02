@@ -40,7 +40,7 @@
     <h1>UHデジタル掲示板</h1>
     <p class="description">ユニットの垣根を超えたイベント情報・仲間募集</p>
     
-    <a href="https://docs.google.com/forms/d/e/1FAIpQLSdKixoEEdSEVQ2Nf1y8ebscJkYM8wd6EbNczfx_qO5SKQq_5g/viewform" target="_blank" class="btn-post">＋ 新規投稿を作成</a>
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLSdwsmaBudHSkbE3KkdtVrsZJLgl5cX_myj_2ry4W8_l229_oQ/viewform?usp=dialog" target="_blank" class="btn-post">＋ 新規投稿を作成</a>
 </div>
 
 <div id="status-msg">データを読み込んでいます...</div>
@@ -48,18 +48,14 @@
 <div id="debug-info"></div>
 
 <script>
-    // 1. Googleスプレッドシートの公開URL（大学アカウントのもの）
-    const ORIGINAL_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaMPsa2R0VATBEtNX3tg_4XTqnc1IB83rCIAWWxRgW8xws9VCB_1se2cJ7mzMMW9FuGOGXHRPNdRpZ/pub?gid=1927079189&single=true&output=csv';
+    // 【プライベートアカウントのCSV URLを使用】プロキシ無し
+    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTiy8DeU1cTmxKwe3aqR8MnEg_C9uyhsG1UxD41IAOCofHuD3wxf050rGG_AYQdwUXndyHqRC0GkENM/pub?gid=457120589&single=true&output=csv';
     
-    // 2. 【プロキシ有効化】強力なプロキシサービス「corsproxy.io」を使用
-    //    GitHub PagesからのCORSブロックを回避します。
-    const PROXY_URL = 'https://corsproxy.io/?' + encodeURIComponent(ORIGINAL_URL);
-
     const board = document.getElementById('board');
     const statusMsg = document.getElementById('status-msg');
     const debugInfo = document.getElementById('debug-info');
 
-    Papa.parse(PROXY_URL, {
+    Papa.parse(SHEET_CSV_URL, {
         download: true,
         header: true,
         skipEmptyLines: true,
@@ -75,6 +71,7 @@
             statusMsg.style.display = 'none';
 
             data.reverse().forEach(post => {
+                // 列名は、以前確認した正しいものを使用
                 const timestamp = post['タイムスタンプ'] || post['Timestamp'];
                 const category = post['投稿の種類'] || 'その他';
                 const title = post['タイトル'];
@@ -115,9 +112,9 @@
         },
         error: function(err, file, inputElem, reason) {
             console.error("Papa Parse Error:", err);
-            statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">読み込みエラーが発生しました。</span>';
+            statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">❌ 読み込みエラーが発生しました。</span>';
             debugInfo.style.display = 'block';
-            debugInfo.innerText = 'エラー詳細:\n' + JSON.stringify(err, null, 2) + '\n\n【ヒント】プロキシ経由の設定でもエラーが出る場合、Googleスプレッドシートの「ウェブに公開」設定を再確認してください。';
+            debugInfo.innerText = 'エラー詳細:\n' + JSON.stringify(err, null, 2) + '\n\n【ヒント】このURLでエラーが出る場合、GitHub PagesではCORSエラーが再度発生している可能性が高いです。プロキシ経由の設定（一つ前の回答）をお試しください。';
         }
     });
 
