@@ -18,12 +18,15 @@
 
         .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-top: 5px solid #95a5a6; transition: transform 0.2s; }
         .card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        /* カテゴリ別デザイン */
         .card.cat-event { border-top-color: #ff6b6b; }
         .card.cat-recruit { border-top-color: #4ecdc4; }
+        .card.cat-other { border-top-color: #95a5a6; } /* その他を明示的に定義 */
 
         .tag { display: inline-block; padding: 3px 10px; border-radius: 15px; font-size: 0.8em; color: white; margin-bottom: 10px; background-color: #95a5a6; }
         .tag.cat-event { background-color: #ff6b6b; }
         .tag.cat-recruit { background-color: #4ecdc4; }
+        .tag.cat-other { background-color: #95a5a6; } /* その他を明示的に定義 */
 
         .card h3 { margin: 0 0 10px 0; font-size: 1.25em; line-height: 1.4; }
         .card p { font-size: 0.95em; line-height: 1.6; color: #555; white-space: pre-wrap; }
@@ -48,7 +51,7 @@
 <div id="debug-info"></div>
 
 <script>
-    // 【プライベートアカウントのCSV URLを使用】プロキシ無し
+    // プライベートアカウントのCSV URLを使用
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTiy8DeU1cTmxKwe3aqR8MnEg_C9uyhsG1UxD41IAOCofHuD3wxf050rGG_AYQdwUXndyHqRC0GkENM/pub?gid=457120589&single=true&output=csv';
     
     const board = document.getElementById('board');
@@ -71,9 +74,12 @@
             statusMsg.style.display = 'none';
 
             data.reverse().forEach(post => {
-                // 列名は、以前確認した正しいものを使用
+                // 【修正点1】投稿の種類を取得し、空白を除去してから代入
+                const rawCategory = post['投稿の種類'];
+                // 空白除去 (.trim()) と、空欄なら「その他」を代入する処理を導入
+                const category = (rawCategory && rawCategory.trim()) ? rawCategory.trim() : 'その他';
+
                 const timestamp = post['タイムスタンプ'] || post['Timestamp'];
-                const category = post['投稿の種類'] || 'その他';
                 const title = post['タイトル'];
                 const description = post['説明'] || ''; 
                 const date = post['開催日'] || '';
@@ -85,9 +91,13 @@
 
                 if (!title) return;
 
-                let catClass = '';
-                if (category.includes('イベント')) catClass = 'cat-event';
-                else if (category.includes('募集')) catClass = 'cat-recruit';
+                // 【修正点2】カテゴリクラスの定義
+                let catClass = 'cat-other'; // デフォルトは「その他」のクラス
+                if (category.includes('イベント')) {
+                    catClass = 'cat-event';
+                } else if (category.includes('募集')) {
+                    catClass = 'cat-recruit';
+                }
 
                 let eventInfoHtml = '';
                 if (category.includes('イベント')) {
