@@ -1,7 +1,83 @@
-// どの列が目的のデータなのかを特定するヘルパー関数
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UHデジタル掲示板 | イベント・仲間募集</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        body { font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+        .header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px solid #ddd; }
+        h1 { color: #0056b3; margin-bottom: 10px; }
+        .description { color: #666; margin-bottom: 20px; }
+        
+        .btn-post { display: inline-block; background-color: #0056b3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 30px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: background-color 0.3s; }
+        .btn-post:hover { background-color: #003d80; }
+
+        .board-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; }
+
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-top: 5px solid #95a5a6; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .card.cat-event { border-top-color: #ff6b6b; }
+        .card.cat-recruit { border-top-color: #4ecdc4; }
+        .card.cat-other { border-top-color: #95a5a6; }
+
+        .tag { display: inline-block; padding: 3px 10px; border-radius: 15px; font-size: 0.8em; color: white; margin-bottom: 10px; background-color: #95a5a6; }
+        .tag.cat-event { background-color: #ff6b6b; }
+        .tag.cat-recruit { background-color: #4ecdc4; }
+        .tag.cat-other { background-color: #95a5a6; }
+
+        .card h3 { margin: 0 0 10px 0; font-size: 1.25em; line-height: 1.4; }
+        .card p { font-size: 0.95em; line-height: 1.6; color: #555; white-space: pre-wrap; }
+        .meta { margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; font-size: 0.85em; color: #888; }
+        .event-info { margin-top: 10px; padding: 5px; background-color: #f7f7f7; border-left: 3px solid #0056b3; margin-bottom: 15px; }
+
+        #status-msg { text-align: center; margin-top: 20px; color: #666; }
+        
+        #debug-output { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>UHデジタル掲示板</h1>
+    <p class="description">ユニットの垣根を超えたイベント情報・仲間募集</p>
+    
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLSdwsmaBudHSkbE3KkdtVrsZJLgl5cX_myj_2ry4W8_l229_oQ/viewform?usp=dialog" target="_blank" class="btn-post">＋ 新規投稿を作成</a>
+</div>
+
+<div id="status-msg">データを読み込んでいます...</div>
+<div id="board" class="board-container"></div>
+<div id="debug-output"></div>
+
+<script>
+    // プライベートアカウントのCSV URLを使用
+    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTiy8DeU1cTmxKwe3aqR8MnEg_C9uyhsG1UxD41IAOCofHuD3wxf050rGG_AYQdwUXndyHqRC0GkENM/pub?gid=457120589&single=true&output=csv';
+    
+    const board = document.getElementById('board');
+    const statusMsg = document.getElementById('status-msg');
+    const debugOutput = document.getElementById('debug-output');
+
+    // データ項目名（列名）の不一致を回避するためのマップを定義
+    const FIELD_MAP = {
+        'timestamp': ['タイムスタンプ', 'Timestamp'],
+        // 投稿の種類* に続くスペースにも対応するよう、候補を最上位に追加しています
+        'category': ['投稿の種類* ', '投稿の種類*', '投稿の種類', 'カテゴリ', '投稿', '種類'], 
+        'title': ['タイトル', 'Title'],
+        'description': ['説明', 'Description'],
+        'date': ['開催日', 'Date'],
+        'timeStart': ['開始時刻', 'Start Time'],
+        'timeEnd': ['終了時刻', 'End Time'],
+        'location': ['開催場所', 'Location'],
+        'organizer': ['主催者', 'Organizer'],
+        'email': ['主催者のDCメールアドレス', '連絡先'],
+    };
+
+    // どの列が目的のデータなのかを特定するヘルパー関数
     function getPostValue(post, keys) {
         if (!post || !keys) return null;
         for (const key of keys) {
+            // PapaParseが認識したキーをそのまま使用し、データを探す
             if (post[key] !== undefined) {
                 return post[key];
             }
@@ -10,25 +86,35 @@
     }
 
     Papa.parse(SHEET_CSV_URL, {
-        // ... (省略)
+        download: true,
+        header: true,
+        skipEmptyLines: true,
         complete: function(results) {
             const data = results.data;
             
-            // ... (省略: statusMsg非表示の処理など)
-            
+            if (data.length === 0 || !data.some(post => getPostValue(post, FIELD_MAP.title))) {
+                statusMsg.innerHTML = 'まだ投稿がありません。<br>上のボタンから最初の投稿をしてみましょう！';
+                return;
+            }
+
+            statusMsg.style.display = 'none';
+
             data.reverse().forEach(post => {
                 
                 // 列名が異なっても、定義したマップに基づいて値を取得
                 const rawCategory = getPostValue(post, FIELD_MAP.category);
                 const rawTitle = getPostValue(post, FIELD_MAP.title);
                 
-                // 【★変更点】タイトルがない投稿はスキップする (最低限、タイトルは必須)
+                // 【空欄対応】タイトルがない投稿はスキップ (最低限、タイトルは必須)
                 if (!rawTitle || rawTitle.trim() === '') return; 
 
                 // ----------------------------------------------------
-                // ★ 判定ロジック (変更なし)
+                // ★ 判定ロジック
                 // ----------------------------------------------------
+                // CSVの値をそのまま表示に使う (前後の空白のみ除去)
                 const category = (rawCategory && rawCategory.trim()) ? rawCategory.trim() : 'その他';
+                
+                // 分類のためのロジック (キーワード検索)
                 let catClass = 'cat-other';
                 const cleanedCategory = category.toLowerCase().replace(/\s/g, '');
 
@@ -40,7 +126,7 @@
                 
                 // ----------------------------------------------------
                 
-                // 【★変更点】全てのデータ取得箇所で、|| ' ' (または || '') を追加し、データが空の場合に空文字列にフォールバックさせる
+                // 【空欄対応】全てのデータ取得箇所で、|| '' を追加し、データが空の場合に空文字列として処理
                 const timestamp = getPostValue(post, FIELD_MAP.timestamp) || '';
                 const description = getPostValue(post, FIELD_MAP.description) || ''; 
                 const date = getPostValue(post, FIELD_MAP.date) || '';
@@ -50,4 +136,40 @@
                 const organizer = getPostValue(post, FIELD_MAP.organizer) || '';
                 const email = getPostValue(post, FIELD_MAP.email) || ''; 
 
-                // ... (省略: cardHtmlの生成とinnerHTMLへの追加)
+                let eventInfoHtml = '';
+                if (catClass === 'cat-event') {
+                    eventInfoHtml = `<div class="event-info"><strong>日時:</strong> ${formatDate(date)} ${formatTime(timeStart)}〜${formatTime(timeEnd)}<br><strong>場所:</strong> ${escapeHtml(location)}</div>`;
+                }
+
+                const cardHtml = `
+                    <div class="card ${catClass}">
+                        <span class="tag ${catClass}">${escapeHtml(category)}</span>
+                        <h3>${escapeHtml(rawTitle)}</h3>
+                        ${eventInfoHtml}
+                        <p>${escapeHtml(description)}</p>
+                        <div class="meta">
+                            <strong>主催者:</strong> ${escapeHtml(organizer)}<br>
+                            <strong>連絡先:</strong> ${escapeHtml(email)}<br>
+                            <span style="font-size:0.9em; opacity:0.7;">投稿日: ${formatDate(timestamp)}</span>
+                        </div>
+                    </div>
+                `;
+                board.innerHTML += cardHtml;
+            });
+        },
+        error: function(err, file, inputElem, reason) {
+            console.error("Papa Parse Error:", err);
+            statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">❌ データ読み込みエラーが発生しました。</span>';
+        }
+    });
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    }
+    function formatDate(s) { return s ? s.split(' ')[0] : ''; }
+    function formatTime(s) { return s ? s.substring(0, 5) : ''; }
+</script>
+
+</body>
+</html>
