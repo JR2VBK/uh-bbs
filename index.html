@@ -45,6 +45,7 @@
             max-width: 1000px;
             margin-left: auto;
             margin-right: auto;
+            display: none; /* 最終版では非表示 */
         }
         #debug-output strong { color: darkred; }
     </style>
@@ -60,7 +61,9 @@
 
 <div id="status-msg">データを読み込んでいます...</div>
 <div id="board" class="board-container"></div>
-<div id="debug-output"></div> <script>
+<div id="debug-output"></div>
+
+<script>
     // プライベートアカウントのCSV URLを使用
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTiy8DeU1cTmxKwe3aqR8MnEg_C9uyhsG1UxD41IAOCofHuD3wxf050rGG_AYQdwUXndyHqRC0GkENM/pub?gid=457120589&single=true&output=csv';
     
@@ -71,9 +74,9 @@
     // データ項目名（列名）の不一致を回避するためのマップを定義
     const FIELD_MAP = {
         'timestamp': ['タイムスタンプ', 'Timestamp'],
-        'category': ['投稿の種類', 'カテゴリ', '投稿', '種類'], 
+        // 【最重要修正】アスタリスク付きの列名にも対応できるよう、候補にアスタリスク付きのものを追加
+        'category': ['投稿の種類', '投稿の種類*', 'カテゴリ', '投稿', '種類'], 
         'title': ['タイトル', 'Title'],
-        // ... 他のフィールドも同様に定義 ...
         'description': ['説明', 'Description'],
         'date': ['開催日', 'Date'],
         'timeStart': ['開始時刻', 'Start Time'],
@@ -89,14 +92,15 @@
         for (const key of keys) {
             // 列名に隠れた空白を無視して検索
             const trimmedKey = key.trim();
+            // ★ keyが一致するか、key + '*'が一致するかをチェックする（アスタリスク対応）
             if (post[trimmedKey] !== undefined) {
                 return post[trimmedKey];
+            } else if (post[trimmedKey + '*'] !== undefined) { 
+                return post[trimmedKey + '*'];
             }
         }
         return null; // 見つからなかった場合
     }
-
-    let debugHtmlContent = '<strong>【カテゴリ判定デバッグ結果 (最初の5件)】</strong><br><br>';
 
     Papa.parse(SHEET_CSV_URL, {
         download: true,
@@ -104,59 +108,40 @@
         skipEmptyLines: true,
         complete: function(results) {
             const data = results.data;
-            const headers = results.meta.fields; // ヘッダーをデバッグ用にも取得
+            // デバッグ表示は最終版では非表示にする
+            debugOutput.style.display = 'none'; 
             
-            // CSVヘッダーを表示（列名を確認するため）
-            debugHtmlContent += `<strong>CSVヘッダー:</strong> ${headers ? escapeHtml(headers.join(' | ')) : 'ヘッダー情報なし'}<br><br>`;
-
             if (data.length === 0 || !data.some(post => getPostValue(post, FIELD_MAP.title))) {
                 statusMsg.innerHTML = 'まだ投稿がありません。<br>上のボタンから最初の投稿をしてみましょう！';
-                debugOutput.innerHTML = debugHtmlContent;
                 return;
             }
 
             statusMsg.style.display = 'none';
 
-            data.reverse().forEach((post, index) => {
+            data.reverse().forEach(post => {
                 
+                // 列名が異なっても、定義したマップに基づいて値を取得
                 const rawCategory = getPostValue(post, FIELD_MAP.category);
                 const rawTitle = getPostValue(post, FIELD_MAP.title);
                 
                 if (!rawTitle) return;
 
                 // ----------------------------------------------------
-                // ★ 診断のための処理
+                // ★ 判定ロジック
                 // ----------------------------------------------------
-                // 表示するカテゴリ名（CSVの値をトリムしたものがそのまま表示される）
                 const category = (rawCategory && rawCategory.trim()) ? rawCategory.trim() : 'その他';
                 
                 // 分類のためのロジック (キーワード検索)
                 let catClass = 'cat-other';
-                let classificationResult = 'その他';
-                
-                if (category.includes('イベント')) {
-                    catClass = 'cat-event';
-                    classificationResult = 'イベント告知';
-                } else if (category.includes('募集')) {
-                    catClass = 'cat-recruit';
-                    classificationResult = '仲間募集';
-                }
+                // クリーンアップした値の小文字版で検索 (大文字/小文字、内部スペースを無視して検索するため)
+                const cleanedCategory = category.toLowerCase().replace(/\s/g, '');
 
-                // デバッグ情報に出力 (最初の5件のみ)
-                if (index < 5) {
-                    const charCodes = rawCategory ? Array.from(rawCategory).map(char => char.charCodeAt(0)).join(', ') : 'N/A';
-                    debugHtmlContent += `
-                        <p><strong>${index + 1}. ${escapeHtml(rawTitle)}</strong><br>
-                        - <strong>生の文字列 (category):</strong> <span style="border:1px solid #ccc; padding:2px;">${escapeHtml(rawCategory || '値なし')}</span><br>
-                        - <strong>文字コード (ASCII/Unicode):</strong> [${charCodes}]<br>
-                        - <strong>判定結果 (catClass):</strong> ${catClass} (→ ${classificationResult})
-                        </p>
-                    `;
+                if (cleanedCategory.includes('イベント')) {
+                    catClass = 'cat-event';
+                } else if (cleanedCategory.includes('募集')) {
+                    catClass = 'cat-recruit';
                 }
-                // ----------------------------------------------------
                 
-                // ----------------------------------------------------
-                // ★ 描画処理
                 // ----------------------------------------------------
                 
                 const timestamp = getPostValue(post, FIELD_MAP.timestamp);
@@ -188,13 +173,10 @@
                 `;
                 board.innerHTML += cardHtml;
             });
-            
-            debugOutput.innerHTML = debugHtmlContent; // デバッグ情報を表示
         },
         error: function(err, file, inputElem, reason) {
             console.error("Papa Parse Error:", err);
             statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">❌ データ読み込みエラーが発生しました。</span>';
-            debugOutput.innerHTML = `<strong>エラー詳細:</strong><br>${JSON.stringify(err, null, 2)}`;
         }
     });
 
