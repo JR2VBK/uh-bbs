@@ -74,9 +74,29 @@
 
             data.reverse().forEach(post => {
                 const rawCategory = post['投稿の種類'];
-                // 前後の空白文字を確実に取り除き、変数を定義
-                const category = (rawCategory && rawCategory.trim()) ? rawCategory.trim() : 'その他';
+                
+                // 【最重要修正ポイント】文字列のクリーンアップ処理を追加
+                let category = 'その他';
+                if (rawCategory) {
+                    // 1. 前後の空白文字を除去 (.trim())
+                    // 2. 内部の改行コードや制御文字を全て除去 (.replace(/\s/g, ''))
+                    // 3. 全て半角に変換 (normalize('NFKC')) ※全角スペース対策
+                    const cleanedCategory = rawCategory.trim().replace(/\s/g, '').normalize('NFKC');
 
+                    // 判定用の文字列を定義
+                    const EVENT_STR = 'イベント告知'.replace(/\s/g, '').normalize('NFKC');
+                    const RECRUIT_STR = '仲間募集'.replace(/\s/g, '').normalize('NFKC');
+
+                    if (cleanedCategory === EVENT_STR) {
+                        category = 'イベント告知';
+                    } else if (cleanedCategory === RECRUIT_STR) {
+                        category = '仲間募集';
+                    } else {
+                        // クリーンアップした結果、それでも当てはまらない場合は、元の文字列をそのまま使用（表示はさせたい）
+                        category = rawCategory.trim(); 
+                    }
+                }
+                
                 const timestamp = post['タイムスタンプ'] || post['Timestamp'];
                 const title = post['タイトル'];
                 const description = post['説明'] || ''; 
@@ -89,16 +109,16 @@
 
                 if (!title) return;
 
-                // 【修正ポイント】カテゴリ判定を厳密な「完全一致(===)」に変更
-                let catClass = 'cat-other'; // デフォルト
-                if (category === 'イベント告知') {
+                // カテゴリクラスの定義（判定はクリーンアップ後の文字列を使用）
+                let catClass = 'cat-other';
+                if (category.includes('イベント告知')) { // includesに戻し、広めに判定
                     catClass = 'cat-event';
-                } else if (category === '仲間募集') {
+                } else if (category.includes('仲間募集')) {
                     catClass = 'cat-recruit';
                 }
 
                 let eventInfoHtml = '';
-                if (category === 'イベント告知') { // 厳密な判定に合わせる
+                if (catClass === 'cat-event') { // クラス判定に合わせる
                     eventInfoHtml = `<div class="event-info"><strong>日時:</strong> ${formatDate(date)} ${formatTime(timeStart)}〜${formatTime(timeEnd)}<br><strong>場所:</strong> ${escapeHtml(location)}</div>`;
                 }
 
