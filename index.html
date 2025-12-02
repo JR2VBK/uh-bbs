@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UHデジタル掲示板 | イベント・仲間募集</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        body { font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+        .header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px solid #ddd; }
+        h1 { color: #0056b3; margin-bottom: 10px; }
+        .description { color: #666; margin-bottom: 20px; }
+        
+        .btn-post { display: inline-block; background-color: #0056b3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 30px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: background-color 0.3s; }
+        .btn-post:hover { background-color: #003d80; }
+
+        .board-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; }
+
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-top: 5px solid #95a5a6; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .card.cat-event { border-top-color: #ff6b6b; }
+        .card.cat-recruit { border-top-color: #4ecdc4; }
+
+        .tag { display: inline-block; padding: 3px 10px; border-radius: 15px; font-size: 0.8em; color: white; margin-bottom: 10px; background-color: #95a5a6; }
+        .tag.cat-event { background-color: #ff6b6b; }
+        .tag.cat-recruit { background-color: #4ecdc4; }
+
+        .card h3 { margin: 0 0 10px 0; font-size: 1.25em; line-height: 1.4; }
+        .card p { font-size: 0.95em; line-height: 1.6; color: #555; white-space: pre-wrap; }
+        .meta { margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; font-size: 0.85em; color: #888; }
+        .event-info { margin-top: 10px; padding: 5px; background-color: #f7f7f7; border-left: 3px solid #0056b3; margin-bottom: 15px; }
+
+        #status-msg { text-align: center; margin-top: 20px; color: #666; }
+        #debug-info { margin-top: 30px; color: red; font-size: 0.8em; white-space: pre-wrap; display: none; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>UHデジタル掲示板</h1>
+    <p class="description">ユニットの垣根を超えたイベント情報・仲間募集</p>
+    
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLSdKixoEEdSEVQ2Nf1y8ebscJkYM8wd6EbNczfx_qO5SKQq_5g/viewform" target="_blank" class="btn-post">＋ 新規投稿を作成</a>
+</div>
+
+<div id="status-msg">データを読み込んでいます...</div>
+<div id="board" class="board-container"></div>
+<div id="debug-info"></div>
+
+<script>
+    // 【プロキシ無し】最初のGoogleスプレッドシートURL
+    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaMPsa2R0VATBEtNX3tg_4XTqnc1IB83rCIAWWxRgW8xws9VCB_1se2cJ7mzMMW9FuGOGXHRPNdRpZ/pub?gid=1927079189&single=true&output=csv';
+    
+    const board = document.getElementById('board');
+    const statusMsg = document.getElementById('status-msg');
+    const debugInfo = document.getElementById('debug-info');
+
+    Papa.parse(SHEET_CSV_URL, { // プロキシを使わず直接アクセス
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+            const data = results.data;
+            console.log("Fetched Data:", data);
+
+            if (data.length === 0 || !data.some(post => post['タイトル'])) {
+                statusMsg.innerHTML = 'まだ投稿がありません。<br>上のボタンから最初の投稿をしてみましょう！';
+                return;
+            }
+
+            statusMsg.style.display = 'none';
+
+            data.reverse().forEach(post => {
+                // 列名は、以前確認した正しいものを使用
+                const timestamp = post['タイムスタンプ'] || post['Timestamp'];
+                const category = post['投稿の種類'] || 'その他';
+                const title = post['タイトル'];
+                const description = post['説明'] || ''; 
+                const date = post['開催日'] || '';
+                const timeStart = post['開始時刻'] || '';
+                const timeEnd = post['終了時刻'] || '';
+                const location = post['開催場所'] || '';
+                const organizer = post['主催者'] || '';
+                const email = post['主催者のDCメールアドレス'] || ''; 
+
+                if (!title) return;
+
+                let catClass = '';
+                if (category.includes('イベント')) catClass = 'cat-event';
+                else if (category.includes('募集')) catClass = 'cat-recruit';
+
+                let eventInfoHtml = '';
+                if (category.includes('イベント')) {
+                    eventInfoHtml = `<div class="event-info"><strong>日時:</strong> ${formatDate(date)} ${formatTime(timeStart)}〜${formatTime(timeEnd)}<br><strong>場所:</strong> ${escapeHtml(location)}</div>`;
+                }
+
+                const cardHtml = `
+                    <div class="card ${catClass}">
+                        <span class="tag ${catClass}">${escapeHtml(category)}</span>
+                        <h3>${escapeHtml(title)}</h3>
+                        ${eventInfoHtml}
+                        <p>${escapeHtml(description)}</p>
+                        <div class="meta">
+                            <strong>主催者:</strong> ${escapeHtml(organizer)}<br>
+                            <strong>連絡先:</strong> ${escapeHtml(email)}<br>
+                            <span style="font-size:0.9em; opacity:0.7;">投稿日: ${formatDate(timestamp)}</span>
+                        </div>
+                    </div>
+                `;
+                board.innerHTML += cardHtml;
+            });
+        },
+        error: function(err, file, inputElem, reason) {
+            console.error("Papa Parse Error:", err);
+            statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">❌ 読み込みエラーが発生しました。</span>';
+            debugInfo.style.display = 'block';
+            debugInfo.innerText = 'エラー詳細:\n' + JSON.stringify(err, null, 2) + '\n\n【予想される原因】: 大学アカウントのセキュリティ設定により、外部サイトからのデータ取得（CORS）がブロックされています。';
+        }
+    });
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    }
+    function formatDate(s) { return s ? s.split(' ')[0] : ''; }
+    function formatTime(s) { return s ? s.substring(0, 5) : ''; }
+</script>
+
+</body>
+</html>
