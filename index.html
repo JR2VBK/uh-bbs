@@ -16,6 +16,19 @@
         .btn-post { display: inline-block; background-color: #0056b3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 30px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: background-color 0.3s; }
         .btn-post:hover { background-color: #003d80; }
 
+        .user-info-area {
+            display: flex; justify-content: center; align-items: center; gap: 15px;
+            margin-bottom: 20px; background-color: #eef6ff; padding: 10px; border-radius: 8px;
+            display: inline-flex; /* 中身に合わせて幅を調整 */
+        }
+        
+        .btn-logout {
+            background-color: white; color: #666; border: 1px solid #ccc;
+            padding: 5px 12px; border-radius: 4px; font-size: 0.85em; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-logout:hover { background-color: #f0f0f0; color: #333; border-color: #999; }
+
         .board-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; }
 
         /* カードデザイン */
@@ -86,25 +99,18 @@
             background: white; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         .btn-google {
-            background-color: white; color: #757575; 
-            padding: 10px 20px; border-radius: 4px;
-            font-size: 1em; font-weight: bold; cursor: pointer; 
-            border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            transition: background-color 0.2s, box-shadow 0.2s; 
-            display: inline-flex; align-items: center; justify-content: center;
+            background-color: white; color: #757575; padding: 10px 20px; border-radius: 4px;
+            font-size: 1em; font-weight: bold; cursor: pointer; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: background-color 0.2s, box-shadow 0.2s; display: inline-flex; align-items: center; justify-content: center;
             margin: 20px auto 10px auto; width: 80%;
         }
         .btn-google:hover { background-color: #f8f8f8; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         .btn-google img { width: 18px; height: 18px; margin-right: 15px; }
         
-        /* ★追加: デモログインボタンのスタイル */
         .btn-demo {
-            background-color: #607d8b; color: white;
-            padding: 10px 20px; border-radius: 4px;
-            font-size: 0.9em; font-weight: bold; cursor: pointer;
-            border: none; margin: 10px auto 0 auto; width: 80%;
-            display: inline-block; text-decoration: none;
-            transition: background-color 0.2s;
+            background-color: #607d8b; color: white; padding: 10px 20px; border-radius: 4px;
+            font-size: 0.9em; font-weight: bold; cursor: pointer; border: none; margin: 10px auto 0 auto; width: 80%;
+            display: inline-block; text-decoration: none; transition: background-color 0.2s;
         }
         .btn-demo:hover { background-color: #546e7a; }
 
@@ -118,7 +124,12 @@
     <div class="header">
         <h1>UHデジタル掲示板</h1>
         <p class="description">ユニットの垣根を超えたイベント情報・仲間募集</p>
-        <p style="font-size:0.9em; color:#0056b3; font-weight:bold;" id="user-display">ようこそ、[ユーザー名]さん</p>
+        
+        <div class="user-info-area">
+            <span style="font-size:0.9em; color:#0056b3; font-weight:bold;" id="user-display">ようこそ、[ユーザー名]さん</span>
+            <button id="logout-btn" class="btn-logout">ログアウト</button>
+        </div>
+        
         <a href="https://docs.google.com/forms/d/e/1FAIpQLSdwsmaBudHSkbE3KkdtVrsZJLgl5cX_myj_2ry4W8_l229_oQ/viewform?usp=dialog" target="_blank" class="btn-post">＋ 新規投稿を作成</a>
     </div>
 
@@ -130,16 +141,13 @@
     <h2>アクセス認証</h2>
     <p>この掲示板は、UH入居者専用です。</p>
     <p><strong>@dc.tohoku.ac.jp</strong> のアカウントでログインしてください。</p>
-    
     <button id="google-login-btn" class="btn-google">
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo">
         Googleでログイン
     </button>
-    
     <button id="demo-login-btn" class="btn-demo">
         【プロトタイプ専用】<br />デモアカウントでログイン
     </button>
-
     <p id="auth-error" class="auth-error" style="display:none;"></p>
 </div>
 
@@ -181,9 +189,9 @@
     const authError = document.getElementById('auth-error');
     const userDisplay = document.getElementById('user-display');
     const loginButton = document.getElementById('google-login-btn');
-    const demoButton = document.getElementById('demo-login-btn'); // ★追加
+    const demoButton = document.getElementById('demo-login-btn');
+    const logoutButton = document.getElementById('logout-btn'); // ★追加
 
-    // Google ログイン処理
     loginButton.addEventListener('click', () => {
         auth.signInWithPopup(googleProvider)
             .catch((error) => {
@@ -193,37 +201,54 @@
             });
     });
 
-    // ★追加: デモログイン処理（認証をスキップ）
     demoButton.addEventListener('click', () => {
         authContainer.style.display = 'none';
         mainContent.style.display = 'block';
         userDisplay.innerText = "ようこそ、デモユーザー様 (デモモード)";
+        // デモモードではログアウトボタンの挙動をリロードにする（または隠す）
+        logoutButton.onclick = () => { location.reload(); };
         loadBoardData();
     });
 
-    // 認証状態の監視
+    // ★追加: ログアウト処理
+    logoutButton.addEventListener('click', () => {
+        auth.signOut().then(() => {
+            // ログアウト成功時の処理は onAuthStateChanged で自動的に行われる
+            console.log("Logged out");
+        }).catch((error) => {
+            console.error("Logout Error:", error);
+        });
+    });
+
     auth.onAuthStateChanged((user) => {
         if (user) {
             const email = user.email;
             if (email && email.endsWith(AUTH_DOMAIN)) {
-                // 正規ユーザー（DCメール）
+                // 認証成功！
                 authContainer.style.display = 'none';
                 mainContent.style.display = 'block';
-                userDisplay.innerText = `ようこそ、${user.displayName}さん (${user.email})`;
+                userDisplay.innerText = `ようこそ、${user.displayName}さん`;
                 loadBoardData(); 
             } else {
-                // 不正ユーザー
+                // ドメイン拒否
                 authContainer.style.display = 'block';
                 mainContent.style.display = 'none';
                 authError.innerHTML = `⚠️アクセス拒否: **${email}** は許可されたドメイン（${AUTH_DOMAIN}）ではありません。<br><span style="font-size:0.8em; color:#666;">※審査の方は下の「デモアカウント」をご利用ください。</span>`;
                 authError.style.display = 'block';
                 auth.signOut(); 
             }
+        } else {
+            // 未ログイン時：ログイン画面を表示
+            authContainer.style.display = 'block';
+            mainContent.style.display = 'none';
+            authError.style.display = 'none';
+            // ボードの中身をクリアしておく
+            board.innerHTML = '';
         }
     });
 
     // ----------------------------------------------------
-    // 【3. 掲示板データ読み込み】（変更なし）
+    // 【3. 掲示板データ読み込み】
     // ----------------------------------------------------
 
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTiy8DeU1cTmxKwe3aqR8MnEg_C9uyhsG1UxD41IAOCofHuD3wxf050rGG_AYQdwUXndyHqRC0GkENM/pub?gid=457120589&single=true&output=csv';
