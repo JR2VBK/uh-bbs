@@ -18,19 +18,20 @@
 
         .user-info-area {
             display: flex; justify-content: center; align-items: center; gap: 15px;
-            margin-bottom: 20px; background-color: #eef6ff; padding: 10px; border-radius: 8px;
+            margin-bottom: 20px; background-color: #eef6ff; padding: 10px 20px; border-radius: 30px;
             display: inline-flex;
         }
         
         .btn-logout {
             background-color: white; color: #666; border: 1px solid #ccc;
-            padding: 5px 12px; border-radius: 4px; font-size: 0.85em; cursor: pointer;
+            padding: 5px 12px; border-radius: 15px; font-size: 0.85em; cursor: pointer;
             transition: all 0.2s;
         }
         .btn-logout:hover { background-color: #f0f0f0; color: #333; border-color: #999; }
 
         .board-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; }
 
+        /* カードデザイン */
         .card { 
             background: white; border-radius: 8px; padding: 20px; 
             box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-top: 5px solid #95a5a6; 
@@ -223,18 +224,10 @@
                 // ドメイン拒否
                 authContainer.style.display = 'block';
                 mainContent.style.display = 'none';
-                
-                // 画面上のエラー表示
-                authError.innerHTML = `⚠️アクセス拒否: **${email}** は許可されたドメイン（${AUTH_DOMAIN}）ではありません。<br><span style="font-size:0.8em; color:#666;">※デモユーザーの方は下の「デモアカウント」をご利用ください。</span>`;
+                authError.innerHTML = `⚠️アクセス拒否: **${email}** は許可されたドメイン（${AUTH_DOMAIN}）ではありません。<br><span style="font-size:0.8em; color:#666;">※審査の方は下の「デモアカウント」をご利用ください。</span>`;
                 authError.style.display = 'block';
-                
-                // ポップアップでの通知
-                alert(`⚠️アクセス拒否\n\nログインされたアカウント（${email}）は、許可されたドメイン（${AUTH_DOMAIN}）ではありません。\n\nUH入居者用のアカウントで再度お試しいただくか、デモユーザーの方は「デモアカウント」をご利用ください。`);
-                
-                // ★修正: モバイル環境でalert()が消えるのを防ぐため、サインアウト処理をわずかに遅延させる
-                setTimeout(() => {
-                    auth.signOut(); 
-                }, 100); 
+                alert(`⚠️アクセス拒否\n\nログインされたアカウント（${email}）は、許可されたドメイン（${AUTH_DOMAIN}）ではありません。\n\nUH入居者用のアカウントで再度お試しいただくか、審査の方は「デモアカウント」をご利用ください。`);
+                setTimeout(() => { auth.signOut(); }, 100); 
             }
         } else {
             // 未ログイン
@@ -368,8 +361,8 @@
                                     <tr><th>連絡先</th><td><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td></tr>
                                 </table>
 
-                                <button id="action-btn" class="api-action-btn">興味あり！参加希望を送る</button>
-                                <p style="font-size:0.8em; color:#666; text-align:center; margin-top:5px;">※クリックすると主催者に通知が届くイメージです（デモ）</p>
+                                <button id="action-btn" class="api-action-btn">興味あり！参加希望を送る（メール作成）</button>
+                                <p style="font-size:0.8em; color:#666; text-align:center; margin-top:5px;">※クリックするとメールソフトが起動します。</p>
                             </div>
                         `;
                         modalBody.innerHTML = modalHtml;
@@ -378,13 +371,26 @@
                         const actionBtn = document.getElementById('action-btn');
                         actionBtn.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            actionBtn.innerText = '送信中...';
-                            actionBtn.classList.add('processing');
-                            console.log(`API Call: User is interested in "${rawTitle}"`);
-                            setTimeout(() => {
-                                alert('【デモ】参加希望を送信しました！');
-                                actionBtn.innerText = '送信完了';
-                            }, 1000);
+                            
+                            // ログインユーザー情報の取得
+                            const user = auth.currentUser;
+                            const myName = user ? (user.displayName || '匿名') : '匿名';
+                            const myEmail = user ? user.email : '不明';
+
+                            // 宛先（投稿者のメールアドレス）
+                            const targetEmail = email; // forEachループ内のemail変数
+
+                            if (!targetEmail || targetEmail === '-' || targetEmail === '') {
+                                alert('この投稿には連絡先が設定されていません。');
+                                return;
+                            }
+
+                            // メーラー起動用の件名と本文
+                            const subject = `【参加希望】${rawTitle} について`;
+                            const body = `${organizer} 様\n\nUH掲示板を見ました。\n以下のイベントに参加を希望します。\n\nイベント名: ${rawTitle}\n開催日時: ${timeDisplay || '未定'}\n\nよろしくお願いします。\n\n--------------------------------------------------\n申込者: ${myName}\n連絡先: ${myEmail}\n--------------------------------------------------`;
+
+                            // mailtoリンクの作成と起動
+                            window.location.href = `mailto:${targetEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
                         });
                     });
 
