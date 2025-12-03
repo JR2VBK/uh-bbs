@@ -85,17 +85,29 @@
             max-width: 400px; margin: 80px auto; padding: 40px; border-radius: 10px;
             background: white; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        /* ★修正: 中央配置とロゴ画像を追加 */
+        /* ★修正: ボタン幅とロゴ表示の調整 */
         .btn-google {
             background-color: #4285f4; color: white; padding: 12px 25px; border-radius: 4px;
             font-size: 1.1em; font-weight: bold; cursor: pointer; border: none;
             transition: background-color 0.2s; 
-            display: flex; align-items: center; justify-content: center;
-            margin: 20px auto 0 auto; /* 中央寄せ */
-            width: 80%; /* 幅を調整して中央配置を効かせる */
+            display: inline-flex; /* flexに変更して中央寄せ */
+            align-items: center; 
+            justify-content: center;
+            margin: 20px auto 0 auto;
+            /* widthは自動に任せて、flexで内側の要素を中央に配置 */
         }
         .btn-google:hover { background-color: #357ae8; }
-        .btn-google img { width: 18px; height: 18px; margin-right: 10px; background: white; padding: 2px; border-radius: 2px; }
+        .btn-google img { 
+            width: 18px; 
+            height: 18px; 
+            margin-right: 10px; 
+            background: white; 
+            padding: 2px; 
+            border-radius: 2px; 
+            /* 画像が表示されない場合に備え、borderを追加 */
+            border: 1px solid white; 
+            box-sizing: content-box;
+        }
         .auth-error { color: #e74c3c; margin-top: 20px; font-weight: bold; }
 
     </style>
