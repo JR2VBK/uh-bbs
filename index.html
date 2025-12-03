@@ -19,7 +19,7 @@
         .user-info-area {
             display: flex; justify-content: center; align-items: center; gap: 15px;
             margin-bottom: 20px; background-color: #eef6ff; padding: 10px; border-radius: 8px;
-            display: inline-flex; /* 中身に合わせて幅を調整 */
+            display: inline-flex;
         }
         
         .btn-logout {
@@ -31,7 +31,6 @@
 
         .board-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; }
 
-        /* カードデザイン */
         .card { 
             background: white; border-radius: 8px; padding: 20px; 
             box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-top: 5px solid #95a5a6; 
@@ -146,7 +145,7 @@
         Googleでログイン
     </button>
     <button id="demo-login-btn" class="btn-demo">
-        【プロトタイプ専用】<br />デモアカウントでログイン
+        【プロトタイプ専用】デモアカウントでログイン
     </button>
     <p id="auth-error" class="auth-error" style="display:none;"></p>
 </div>
@@ -160,9 +159,6 @@
 </div>
 
 <script>
-    // ----------------------------------------------------
-    // 【1. Firebase 設定と初期化】
-    // ----------------------------------------------------
     const firebaseConfig = {
       apiKey: "AIzaSyCYQb29DsgjXLIFvUJGsxHbPOTQ2pN_tp0",
       authDomain: "uh-bbs.firebaseapp.com",
@@ -181,16 +177,13 @@
 
     const AUTH_DOMAIN = '@dc.tohoku.ac.jp'; 
     
-    // ----------------------------------------------------
-    // 【2. 認証処理】
-    // ----------------------------------------------------
     const authContainer = document.getElementById('auth-container');
     const mainContent = document.getElementById('main-content');
     const authError = document.getElementById('auth-error');
     const userDisplay = document.getElementById('user-display');
     const loginButton = document.getElementById('google-login-btn');
     const demoButton = document.getElementById('demo-login-btn');
-    const logoutButton = document.getElementById('logout-btn'); // ★追加
+    const logoutButton = document.getElementById('logout-btn');
 
     loginButton.addEventListener('click', () => {
         auth.signInWithPopup(googleProvider)
@@ -205,15 +198,12 @@
         authContainer.style.display = 'none';
         mainContent.style.display = 'block';
         userDisplay.innerText = "ようこそ、デモユーザー様 (デモモード)";
-        // デモモードではログアウトボタンの挙動をリロードにする（または隠す）
         logoutButton.onclick = () => { location.reload(); };
         loadBoardData();
     });
 
-    // ★追加: ログアウト処理
     logoutButton.addEventListener('click', () => {
         auth.signOut().then(() => {
-            // ログアウト成功時の処理は onAuthStateChanged で自動的に行われる
             console.log("Logged out");
         }).catch((error) => {
             console.error("Logout Error:", error);
@@ -224,7 +214,7 @@
         if (user) {
             const email = user.email;
             if (email && email.endsWith(AUTH_DOMAIN)) {
-                // 認証成功！
+                // 認証成功
                 authContainer.style.display = 'none';
                 mainContent.style.display = 'block';
                 userDisplay.innerText = `ようこそ、${user.displayName}さん`;
@@ -233,23 +223,24 @@
                 // ドメイン拒否
                 authContainer.style.display = 'block';
                 mainContent.style.display = 'none';
-                authError.innerHTML = `⚠️アクセス拒否: **${email}** は許可されたドメイン（${AUTH_DOMAIN}）ではありません。<br><span style="font-size:0.8em; color:#666;">※審査の方は下の「デモアカウント」をご利用ください。</span>`;
+                
+                // 画面上のエラー表示
+                authError.innerHTML = `⚠️アクセス拒否: **${email}** は許可されたドメイン（${AUTH_DOMAIN}）ではありません。<br><span style="font-size:0.8em; color:#666;">※デモユーザーの方は下の「デモアカウント」をご利用ください。</span>`;
                 authError.style.display = 'block';
+                
+                // ポップアップでの通知
+                alert(`⚠️アクセス拒否\n\nログインされたアカウント（${email}）は、許可されたドメイン（${AUTH_DOMAIN}）ではありません。\n\nUH入居者用のアカウントで再度お試しいただくか、デモユーザーの方は「デモアカウント」をご利用ください。`);
+                
                 auth.signOut(); 
             }
         } else {
-            // 未ログイン時：ログイン画面を表示
+            // 未ログイン
             authContainer.style.display = 'block';
             mainContent.style.display = 'none';
             authError.style.display = 'none';
-            // ボードの中身をクリアしておく
             board.innerHTML = '';
         }
     });
-
-    // ----------------------------------------------------
-    // 【3. 掲示板データ読み込み】
-    // ----------------------------------------------------
 
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTiy8DeU1cTmxKwe3aqR8MnEg_C9uyhsG1UxD41IAOCofHuD3wxf050rGG_AYQdwUXndyHqRC0GkENM/pub?gid=457120589&single=true&output=csv';
     
