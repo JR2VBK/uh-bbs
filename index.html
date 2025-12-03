@@ -17,28 +17,82 @@
         .btn-post:hover { background-color: #003d80; }
 
         .board-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; }
-        /* ... (既存のCSSは省略しますが、コードには含まれています) ... */
-        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-top: 5px solid #95a5a6; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; position: relative; }
+
+        /* カードデザイン */
+        .card { 
+            background: white; border-radius: 8px; padding: 20px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-top: 5px solid #95a5a6; 
+            transition: transform 0.2s, box-shadow 0.2s; 
+            cursor: pointer; position: relative;
+        }
         .card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+
         .card.cat-event { border-top-color: #ff6b6b; }
         .card.cat-recruit { border-top-color: #4ecdc4; }
+        .card.cat-other { border-top-color: #95a5a6; }
+
         .tag { display: inline-block; padding: 3px 10px; border-radius: 15px; font-size: 0.8em; color: white; margin-bottom: 10px; background-color: #95a5a6; }
         .tag.cat-event { background-color: #ff6b6b; }
         .tag.cat-recruit { background-color: #4ecdc4; }
+        .tag.cat-other { background-color: #95a5a6; }
+
+        .card h3 { margin: 0 0 10px 0; font-size: 1.25em; line-height: 1.4; }
         .card p { font-size: 0.95em; line-height: 1.6; color: #555; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         
+        .meta { margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; font-size: 0.85em; color: #888; }
+        .event-info { margin-top: 10px; padding: 5px; background-color: #f7f7f7; border-left: 3px solid #0056b3; margin-bottom: 15px; font-size: 0.9em; }
+
         #status-msg { text-align: center; margin-top: 20px; color: #666; }
 
+        /* モーダル関連 */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); z-index: 1000;
+            justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active { display: flex; opacity: 1; }
+
+        .modal-content {
+            background: white; padding: 30px; border-radius: 12px;
+            max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;
+            position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            transform: translateY(20px); transition: transform 0.3s ease;
+        }
+        .modal-overlay.active .modal-content { transform: translateY(0); }
+
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 28px; font-weight: bold; color: #aaa; cursor: pointer; }
+        .close-btn:hover { color: #333; }
+
+        .modal-header { margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .modal-body p { line-height: 1.8; color: #444; white-space: pre-wrap; }
+        
+        .modal-meta-table { width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 0.95em; }
+        .modal-meta-table th, .modal-meta-table td { padding: 10px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
+        .modal-meta-table th { width: 30%; color: #666; font-weight: normal; background: #f9f9f9; }
+        
+        .click-hint { font-size: 0.8em; color: #999; text-align: right; margin-top: 5px; }
+
+        .api-action-btn {
+            display: block; width: 100%; margin-top: 20px; padding: 15px;
+            background-color: #28a745; color: white; font-size: 1.1em; font-weight: bold;
+            border: none; border-radius: 8px; cursor: pointer; text-align: center; transition: background-color 0.2s;
+        }
+        .api-action-btn:hover { background-color: #218838; }
+        .api-action-btn.processing { background-color: #ccc; cursor: not-allowed; }
+        
         /* --- 認証画面のスタイル --- */
         #auth-container {
             max-width: 400px; margin: 80px auto; padding: 40px; border-radius: 10px;
             background: white; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
+        /* ★修正: 中央配置とロゴ画像を追加 */
         .btn-google {
             background-color: #4285f4; color: white; padding: 12px 25px; border-radius: 4px;
             font-size: 1.1em; font-weight: bold; cursor: pointer; border: none;
-            transition: background-color 0.2s; display: flex; align-items: center; justify-content: center;
-            margin-top: 20px;
+            transition: background-color 0.2s; 
+            display: flex; align-items: center; justify-content: center;
+            margin: 20px auto 0 auto; /* 中央寄せ */
+            width: 80%; /* 幅を調整して中央配置を効かせる */
         }
         .btn-google:hover { background-color: #357ae8; }
         .btn-google img { width: 18px; height: 18px; margin-right: 10px; background: white; padding: 2px; border-radius: 2px; }
@@ -83,6 +137,7 @@
     // ----------------------------------------------------
     // 【1. Firebase 設定と初期化】
     // ----------------------------------------------------
+    // ※ ユーザー様の情報を使用
     const firebaseConfig = {
       apiKey: "AIzaSyCYQb29DsgjXLIFvUJGsxHbPOTQ2pN_tp0",
       authDomain: "uh-bbs.firebaseapp.com",
@@ -93,14 +148,13 @@
       measurementId: "G-XQGHSKP4NJ"
     };
 
-    // Firebaseの初期化
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
     }
     const auth = firebase.auth();
     const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-    const AUTH_DOMAIN = '@dc.tohoku.ac.jp'; // ★★★ 許可するドメイン ★★★
+    const AUTH_DOMAIN = '@dc.tohoku.ac.jp'; 
     
     // ----------------------------------------------------
     // 【2. 認証処理】
@@ -111,7 +165,6 @@
     const userDisplay = document.getElementById('user-display');
     const loginButton = document.getElementById('google-login-btn');
 
-    // Google ログイン処理
     loginButton.addEventListener('click', () => {
         auth.signInWithPopup(googleProvider)
             .catch((error) => {
@@ -121,26 +174,23 @@
             });
     });
 
-    // 認証状態の監視とドメインチェック
     auth.onAuthStateChanged((user) => {
         if (user) {
-            // ログイン済みのユーザーがいる
             const email = user.email;
             
-            // ★★★ ドメインチェックのコアロジック ★★★
             if (email && email.endsWith(AUTH_DOMAIN)) {
                 // 認証成功！
                 authContainer.style.display = 'none';
                 mainContent.style.display = 'block';
                 userDisplay.innerText = `ようこそ、${user.displayName}さん (${user.email})`;
-                loadBoardData(); // 掲示板データの読み込みを開始
+                loadBoardData(); 
             } else {
                 // ドメインが異なるため拒否
                 authContainer.style.display = 'block';
                 mainContent.style.display = 'none';
                 authError.innerHTML = `⚠️アクセス拒否: **${email}** は許可されたドメイン（${AUTH_DOMAIN}）ではありません。`;
                 authError.style.display = 'block';
-                auth.signOut(); // ログアウトさせて、アクセスを遮断
+                auth.signOut(); 
             }
         } else {
             // ログアウト状態 or 未ログイン
@@ -169,7 +219,7 @@
     const FIELD_MAP_KEYS = {
         'timestamp': ['タイムスタンプ', 'Timestamp'],
         'title': ['タイトル', 'Title'],
-        'description': ['説明 ', '説明', '説明*', '詳細内容', '詳細', 'Description'], // 末尾スペースに対応
+        'description': ['説明 ', '説明', '説明*', '詳細内容', '詳細', 'Description'],
         'date': ['開催日', 'Date'],
         'timeStart': ['開始時刻', 'Start Time'],
         'timeEnd': ['終了時刻', 'End Time'],
@@ -216,7 +266,6 @@
                 board.innerHTML = '';
 
                 data.reverse().forEach(post => {
-                    // ... (省略：投稿カードの生成ロジックは前回と同じ)
                     const rawCategory = categoryKeyName ? post[categoryKeyName] : getPostValue(post, ['投稿の種類'], categoryKeyName);
                     const rawTitle = getPostValue(post, FIELD_MAP_KEYS.title, categoryKeyName);
                     if (!rawTitle || rawTitle.trim() === '') return; 
