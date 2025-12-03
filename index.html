@@ -86,21 +86,28 @@
             background: white; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         .btn-google {
-            background-color: white; /* 背景を白に */
-            color: #757575; /* Google公式の文字色 */
+            background-color: white; color: #757575; 
             padding: 10px 20px; border-radius: 4px;
             font-size: 1em; font-weight: bold; cursor: pointer; 
-            border: 1px solid #ddd; /* 枠線を追加 */
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             transition: background-color 0.2s, box-shadow 0.2s; 
             display: inline-flex; align-items: center; justify-content: center;
-            margin: 20px auto 0 auto;
+            margin: 20px auto 10px auto; width: 80%;
         }
         .btn-google:hover { background-color: #f8f8f8; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        .btn-google img { 
-            width: 18px; height: 18px; 
-            margin-right: 15px; /* 画像と文字の間隔 */
+        .btn-google img { width: 18px; height: 18px; margin-right: 15px; }
+        
+        /* ★追加: デモログインボタンのスタイル */
+        .btn-demo {
+            background-color: #607d8b; color: white;
+            padding: 10px 20px; border-radius: 4px;
+            font-size: 0.9em; font-weight: bold; cursor: pointer;
+            border: none; margin: 10px auto 0 auto; width: 80%;
+            display: inline-block; text-decoration: none;
+            transition: background-color 0.2s;
         }
+        .btn-demo:hover { background-color: #546e7a; }
+
         .auth-error { color: #e74c3c; margin-top: 20px; font-weight: bold; }
 
     </style>
@@ -123,10 +130,16 @@
     <h2>アクセス認証</h2>
     <p>この掲示板は、UH入居者専用です。</p>
     <p><strong>@dc.tohoku.ac.jp</strong> のアカウントでログインしてください。</p>
+    
     <button id="google-login-btn" class="btn-google">
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo">
         Googleでログイン
     </button>
+    
+    <button id="demo-login-btn" class="btn-demo">
+        【プロトタイプ専用】<br />デモアカウントでログイン
+    </button>
+
     <p id="auth-error" class="auth-error" style="display:none;"></p>
 </div>
 
@@ -168,7 +181,9 @@
     const authError = document.getElementById('auth-error');
     const userDisplay = document.getElementById('user-display');
     const loginButton = document.getElementById('google-login-btn');
+    const demoButton = document.getElementById('demo-login-btn'); // ★追加
 
+    // Google ログイン処理
     loginButton.addEventListener('click', () => {
         auth.signInWithPopup(googleProvider)
             .catch((error) => {
@@ -178,34 +193,37 @@
             });
     });
 
+    // ★追加: デモログイン処理（認証をスキップ）
+    demoButton.addEventListener('click', () => {
+        authContainer.style.display = 'none';
+        mainContent.style.display = 'block';
+        userDisplay.innerText = "ようこそ、デモユーザー様 (デモモード)";
+        loadBoardData();
+    });
+
+    // 認証状態の監視
     auth.onAuthStateChanged((user) => {
         if (user) {
             const email = user.email;
-            
             if (email && email.endsWith(AUTH_DOMAIN)) {
-                // 認証成功！
+                // 正規ユーザー（DCメール）
                 authContainer.style.display = 'none';
                 mainContent.style.display = 'block';
                 userDisplay.innerText = `ようこそ、${user.displayName}さん (${user.email})`;
                 loadBoardData(); 
             } else {
-                // ドメインが異なるため拒否
+                // 不正ユーザー
                 authContainer.style.display = 'block';
                 mainContent.style.display = 'none';
-                authError.innerHTML = `⚠️アクセス拒否: **${email}** は許可されたドメイン（${AUTH_DOMAIN}）ではありません。`;
+                authError.innerHTML = `⚠️アクセス拒否: **${email}** は許可されたドメイン（${AUTH_DOMAIN}）ではありません。<br><span style="font-size:0.8em; color:#666;">※審査の方は下の「デモアカウント」をご利用ください。</span>`;
                 authError.style.display = 'block';
                 auth.signOut(); 
             }
-        } else {
-            // ログアウト状態 or 未ログイン
-            authContainer.style.display = 'block';
-            mainContent.style.display = 'none';
-            authError.style.display = 'none';
         }
     });
 
     // ----------------------------------------------------
-    // 【3. 掲示板データ読み込み（認証成功後に実行される）】
+    // 【3. 掲示板データ読み込み】（変更なし）
     // ----------------------------------------------------
 
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTiy8DeU1cTmxKwe3aqR8MnEg_C9uyhsG1UxD41IAOCofHuD3wxf050rGG_AYQdwUXndyHqRC0GkENM/pub?gid=457120589&single=true&output=csv';
