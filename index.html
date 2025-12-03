@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>【認証必須】UHデジタル掲示板 | イベント・仲間募集</title>
+    <title>UHデジタル掲示板 | イベント・仲間募集</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
@@ -85,28 +85,21 @@
             max-width: 400px; margin: 80px auto; padding: 40px; border-radius: 10px;
             background: white; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        /* ★修正: ボタン幅とロゴ表示の調整 */
         .btn-google {
-            background-color: #4285f4; color: white; padding: 12px 25px; border-radius: 4px;
-            font-size: 1.1em; font-weight: bold; cursor: pointer; border: none;
-            transition: background-color 0.2s; 
-            display: inline-flex; /* flexに変更して中央寄せ */
-            align-items: center; 
-            justify-content: center;
+            background-color: white; /* 背景を白に */
+            color: #757575; /* Google公式の文字色 */
+            padding: 10px 20px; border-radius: 4px;
+            font-size: 1em; font-weight: bold; cursor: pointer; 
+            border: 1px solid #ddd; /* 枠線を追加 */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: background-color 0.2s, box-shadow 0.2s; 
+            display: inline-flex; align-items: center; justify-content: center;
             margin: 20px auto 0 auto;
-            /* widthは自動に任せて、flexで内側の要素を中央に配置 */
         }
-        .btn-google:hover { background-color: #357ae8; }
+        .btn-google:hover { background-color: #f8f8f8; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         .btn-google img { 
-            width: 18px; 
-            height: 18px; 
-            margin-right: 10px; 
-            background: white; 
-            padding: 2px; 
-            border-radius: 2px; 
-            /* 画像が表示されない場合に備え、borderを追加 */
-            border: 1px solid white; 
-            box-sizing: content-box;
+            width: 18px; height: 18px; 
+            margin-right: 15px; /* 画像と文字の間隔 */
         }
         .auth-error { color: #e74c3c; margin-top: 20px; font-weight: bold; }
 
@@ -131,7 +124,7 @@
     <p>この掲示板は、UH入居者専用です。</p>
     <p><strong>@dc.tohoku.ac.jp</strong> のアカウントでログインしてください。</p>
     <button id="google-login-btn" class="btn-google">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google Logo">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo">
         Googleでログイン
     </button>
     <p id="auth-error" class="auth-error" style="display:none;"></p>
@@ -149,7 +142,6 @@
     // ----------------------------------------------------
     // 【1. Firebase 設定と初期化】
     // ----------------------------------------------------
-    // ※ ユーザー様の情報を使用
     const firebaseConfig = {
       apiKey: "AIzaSyCYQb29DsgjXLIFvUJGsxHbPOTQ2pN_tp0",
       authDomain: "uh-bbs.firebaseapp.com",
@@ -339,7 +331,7 @@
                                     <tr><th>連絡先</th><td><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td></tr>
                                 </table>
 
-                                <button id="action-btn" class="api-action-btn">興味あり！ / 参加希望を送る</button>
+                                <button id="action-btn" class="api-action-btn">興味あり！参加希望を送る</button>
                                 <p style="font-size:0.8em; color:#666; text-align:center; margin-top:5px;">※クリックすると主催者に通知が届くイメージです（デモ）</p>
                             </div>
                         `;
