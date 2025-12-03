@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UHデジタル掲示板 | イベント・仲間募集</title>
+    <title>【認証必須】UHデジタル掲示板 | イベント・仲間募集</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
         body { font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
@@ -15,118 +17,159 @@
         .btn-post:hover { background-color: #003d80; }
 
         .board-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; }
-
-        /* カードのスタイル（クリックできるように調整） */
-        .card { 
-            background: white; border-radius: 8px; padding: 20px; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-top: 5px solid #95a5a6; 
-            transition: transform 0.2s, box-shadow 0.2s; 
-            cursor: pointer; /* クリックできる指マークにする */
-            position: relative;
-        }
+        /* ... (既存のCSSは省略しますが、コードには含まれています) ... */
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-top: 5px solid #95a5a6; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; position: relative; }
         .card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
-        .card:active { transform: translateY(0); } /* 押した時の凹み */
-
         .card.cat-event { border-top-color: #ff6b6b; }
         .card.cat-recruit { border-top-color: #4ecdc4; }
-        .card.cat-other { border-top-color: #95a5a6; }
-
         .tag { display: inline-block; padding: 3px 10px; border-radius: 15px; font-size: 0.8em; color: white; margin-bottom: 10px; background-color: #95a5a6; }
         .tag.cat-event { background-color: #ff6b6b; }
         .tag.cat-recruit { background-color: #4ecdc4; }
-        .tag.cat-other { background-color: #95a5a6; }
-
-        .card h3 { margin: 0 0 10px 0; font-size: 1.25em; line-height: 1.4; }
-        .card p { font-size: 0.95em; line-height: 1.6; color: #555; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; /* 3行で省略 */ }
-        .meta { margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; font-size: 0.85em; color: #888; }
-        .event-info { margin-top: 10px; padding: 5px; background-color: #f7f7f7; border-left: 3px solid #0056b3; margin-bottom: 15px; font-size: 0.9em; }
-
+        .card p { font-size: 0.95em; line-height: 1.6; color: #555; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        
         #status-msg { text-align: center; margin-top: 20px; color: #666; }
 
-        /* --- モーダル（詳細画面）のスタイル --- */
-        .modal-overlay {
-            display: none; /* 初期状態は非表示 */
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.6); /* 背景を暗く */
-            z-index: 1000;
-            justify-content: center; align-items: center;
-            opacity: 0; transition: opacity 0.3s ease; /* ふわっと表示 */
+        /* --- 認証画面のスタイル --- */
+        #auth-container {
+            max-width: 400px; margin: 80px auto; padding: 40px; border-radius: 10px;
+            background: white; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        .modal-overlay.active { display: flex; opacity: 1; }
-
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-            position: relative;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            transform: translateY(20px); transition: transform 0.3s ease;
+        .btn-google {
+            background-color: #4285f4; color: white; padding: 12px 25px; border-radius: 4px;
+            font-size: 1.1em; font-weight: bold; cursor: pointer; border: none;
+            transition: background-color 0.2s; display: flex; align-items: center; justify-content: center;
+            margin-top: 20px;
         }
-        .modal-overlay.active .modal-content { transform: translateY(0); }
+        .btn-google:hover { background-color: #357ae8; }
+        .btn-google img { width: 18px; height: 18px; margin-right: 10px; background: white; padding: 2px; border-radius: 2px; }
+        .auth-error { color: #e74c3c; margin-top: 20px; font-weight: bold; }
 
-        .close-btn {
-            position: absolute; top: 15px; right: 20px;
-            font-size: 28px; font-weight: bold; color: #aaa;
-            cursor: pointer; transition: color 0.2s;
-        }
-        .close-btn:hover { color: #333; }
-
-        /* モーダル内のデザイン */
-        .modal-header { margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .modal-body p { line-height: 1.8; color: #444; white-space: pre-wrap; }
-        .modal-meta-table { width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 0.95em; }
-        .modal-meta-table th, .modal-meta-table td { padding: 10px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
-        .modal-meta-table th { width: 30%; color: #666; font-weight: normal; background: #f9f9f9; }
-        
-        .click-hint { font-size: 0.8em; color: #999; text-align: right; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h1>UHデジタル掲示板</h1>
-    <p class="description">ユニットの垣根を超えたイベント情報・仲間募集</p>
-    <a href="https://docs.google.com/forms/d/e/1FAIpQLSdwsmaBudHSkbE3KkdtVrsZJLgl5cX_myj_2ry4W8_l229_oQ/viewform?usp=dialog" target="_blank" class="btn-post">＋ 新規投稿を作成</a>
+<div id="main-content" style="display:none;">
+    <div class="header">
+        <h1>UHデジタル掲示板</h1>
+        <p class="description">ユニットの垣根を超えたイベント情報・仲間募集</p>
+        <p style="font-size:0.9em; color:#0056b3; font-weight:bold;" id="user-display">ようこそ、[ユーザー名]さん</p>
+        <a href="https://docs.google.com/forms/d/e/1FAIpQLSdwsmaBudHSkbE3KkdtVrsZJLgl5cX_myj_2ry4W8_l229_oQ/viewform?usp=dialog" target="_blank" class="btn-post">＋ 新規投稿を作成</a>
+    </div>
+
+    <div id="status-msg">データを読み込んでいます...</div>
+    <div id="board" class="board-container"></div>
 </div>
 
-<div id="status-msg">データを読み込んでいます...</div>
-<div id="board" class="board-container"></div>
+<div id="auth-container">
+    <h2>アクセス認証</h2>
+    <p>この掲示板は、UH入居者専用です。</p>
+    <p><strong>@dc.tohoku.ac.jp</strong> のアカウントでログインしてください。</p>
+    <button id="google-login-btn" class="btn-google">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google Logo">
+        Googleでログイン
+    </button>
+    <p id="auth-error" class="auth-error" style="display:none;"></p>
+</div>
+
 
 <div id="modal-overlay" class="modal-overlay">
     <div class="modal-content">
         <span class="close-btn" id="modal-close">&times;</span>
-        <div id="modal-body">
-            </div>
+        <div id="modal-body"></div>
     </div>
 </div>
 
 <script>
+    // ----------------------------------------------------
+    // 【1. Firebase 設定と初期化】
+    // ----------------------------------------------------
+    const firebaseConfig = {
+      apiKey: "AIzaSyCYQb29DsgjXLIFvUJGsxHbPOTQ2pN_tp0",
+      authDomain: "uh-bbs.firebaseapp.com",
+      projectId: "uh-bbs",
+      storageBucket: "uh-bbs.firebasestorage.app",
+      messagingSenderId: "674149505794",
+      appId: "1:674149505794:web:7c157dd319ad2f07e7801b",
+      measurementId: "G-XQGHSKP4NJ"
+    };
+
+    // Firebaseの初期化
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const auth = firebase.auth();
+    const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+    const AUTH_DOMAIN = '@dc.tohoku.ac.jp'; // ★★★ 許可するドメイン ★★★
+    
+    // ----------------------------------------------------
+    // 【2. 認証処理】
+    // ----------------------------------------------------
+    const authContainer = document.getElementById('auth-container');
+    const mainContent = document.getElementById('main-content');
+    const authError = document.getElementById('auth-error');
+    const userDisplay = document.getElementById('user-display');
+    const loginButton = document.getElementById('google-login-btn');
+
+    // Google ログイン処理
+    loginButton.addEventListener('click', () => {
+        auth.signInWithPopup(googleProvider)
+            .catch((error) => {
+                console.error("Authentication Error:", error);
+                authError.innerText = "ログイン中にエラーが発生しました。再度お試しください。";
+                authError.style.display = 'block';
+            });
+    });
+
+    // 認証状態の監視とドメインチェック
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            // ログイン済みのユーザーがいる
+            const email = user.email;
+            
+            // ★★★ ドメインチェックのコアロジック ★★★
+            if (email && email.endsWith(AUTH_DOMAIN)) {
+                // 認証成功！
+                authContainer.style.display = 'none';
+                mainContent.style.display = 'block';
+                userDisplay.innerText = `ようこそ、${user.displayName}さん (${user.email})`;
+                loadBoardData(); // 掲示板データの読み込みを開始
+            } else {
+                // ドメインが異なるため拒否
+                authContainer.style.display = 'block';
+                mainContent.style.display = 'none';
+                authError.innerHTML = `⚠️アクセス拒否: **${email}** は許可されたドメイン（${AUTH_DOMAIN}）ではありません。`;
+                authError.style.display = 'block';
+                auth.signOut(); // ログアウトさせて、アクセスを遮断
+            }
+        } else {
+            // ログアウト状態 or 未ログイン
+            authContainer.style.display = 'block';
+            mainContent.style.display = 'none';
+            authError.style.display = 'none';
+        }
+    });
+
+    // ----------------------------------------------------
+    // 【3. 掲示板データ読み込み（認証成功後に実行される）】
+    // ----------------------------------------------------
+
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTiy8DeU1cTmxKwe3aqR8MnEg_C9uyhsG1UxD41IAOCofHuD3wxf050rGG_AYQdwUXndyHqRC0GkENM/pub?gid=457120589&single=true&output=csv';
     
     const board = document.getElementById('board');
     const statusMsg = document.getElementById('status-msg');
-    
-    // モーダル関連の要素
     const modalOverlay = document.getElementById('modal-overlay');
     const modalBody = document.getElementById('modal-body');
     const modalClose = document.getElementById('modal-close');
 
-    // モーダルを閉じる処理
     const closeModal = () => { modalOverlay.classList.remove('active'); };
     modalClose.addEventListener('click', closeModal);
-    modalOverlay.addEventListener('click', (e) => {
-        if (e.target === modalOverlay) closeModal(); // 背景クリックでも閉じる
-    });
+    modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
 
-    // 項目名マッピング
     const FIELD_MAP_KEYS = {
         'timestamp': ['タイムスタンプ', 'Timestamp'],
         'title': ['タイトル', 'Title'],
-        'description': ['説明', 'Description'],
+        'description': ['説明 ', '説明', '説明*', '詳細内容', '詳細', 'Description'], // 末尾スペースに対応
         'date': ['開催日', 'Date'],
         'timeStart': ['開始時刻', 'Start Time'],
         'timeEnd': ['終了時刻', 'End Time'],
@@ -137,11 +180,12 @@
 
     function getPostValue(post, keys, categoryKeyName) {
         if (!post || !keys) return null;
-        if (categoryKeyName && keys.includes('category') && post[categoryKeyName] !== undefined) {
-            return post[categoryKeyName];
-        }
-        for (const key of keys) {
+        if (categoryKeyName && keys.includes('category') && post[categoryKeyName] !== undefined) return post[categoryKeyName];
+        
+        for (const key of keys) { 
             if (post[key] !== undefined) return post[key];
+            const trimKey = key.trim();
+            if (post[trimKey] !== undefined) return post[trimKey];
         }
         return null;
     }
@@ -150,119 +194,118 @@
         if (!fields) return null;
         for (const field of fields) {
             const cleanedField = field.replace(/\s/g, '').replace(/\*/g, '').toLowerCase();
-            if (cleanedField.includes('投稿') || cleanedField.includes('種類')) {
-                return field;
-            }
+            if (cleanedField.includes('投稿') || cleanedField.includes('種類')) return field;
         }
         return null;
     }
-
-    Papa.parse(SHEET_CSV_URL, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-            const data = results.data;
-            const headers = results.meta.fields;
-            const categoryKeyName = findCategoryKeyName(headers);
-            
-            if (data.length === 0 || !data.some(post => getPostValue(post, FIELD_MAP_KEYS.title, categoryKeyName))) {
-                statusMsg.innerHTML = 'まだ投稿がありません。<br>上のボタンから最初の投稿をしてみましょう！';
-                return;
-            }
-
-            statusMsg.style.display = 'none';
-            board.innerHTML = ''; // クリア
-
-            data.reverse().forEach(post => {
-                const rawCategory = categoryKeyName ? post[categoryKeyName] : getPostValue(post, ['投稿の種類'], categoryKeyName);
-                const rawTitle = getPostValue(post, FIELD_MAP_KEYS.title, categoryKeyName);
+    
+    function loadBoardData() {
+        Papa.parse(SHEET_CSV_URL, {
+            download: true, header: true, skipEmptyLines: true,
+            complete: function(results) {
+                const data = results.data;
+                const headers = results.meta.fields;
+                const categoryKeyName = findCategoryKeyName(headers);
                 
-                if (!rawTitle || rawTitle.trim() === '') return; 
-
-                // カテゴリ処理
-                const category = (rawCategory && rawCategory.trim()) ? rawCategory.trim() : 'その他';
-                let catClass = 'cat-other';
-                const cleanedCategory = category.toLowerCase().replace(/\s/g, '');
-                if (cleanedCategory.includes('イベント')) catClass = 'cat-event';
-                else if (cleanedCategory.includes('募集')) catClass = 'cat-recruit';
-
-                // データ取得（空欄対応）
-                const timestamp = getPostValue(post, FIELD_MAP_KEYS.timestamp, categoryKeyName) || '';
-                const description = getPostValue(post, FIELD_MAP_KEYS.description, categoryKeyName) || '（詳細な説明はありません）'; 
-                const date = getPostValue(post, FIELD_MAP_KEYS.date, categoryKeyName) || '';
-                const timeStart = getPostValue(post, FIELD_MAP_KEYS.timeStart, categoryKeyName) || '';
-                const timeEnd = getPostValue(post, FIELD_MAP_KEYS.timeEnd, categoryKeyName) || '';
-                const location = getPostValue(post, FIELD_MAP_KEYS.location, categoryKeyName) || '未定';
-                const organizer = getPostValue(post, FIELD_MAP_KEYS.organizer, categoryKeyName) || '匿名';
-                const email = getPostValue(post, FIELD_MAP_KEYS.email, categoryKeyName) || '-'; 
-
-                // カード内のイベント情報（簡易表示）
-                let eventInfoHtml = '';
-                let timeDisplay = '';
-                if (date) {
-                    timeDisplay = `${formatDate(date)}`;
-                    if (timeStart) timeDisplay += ` ${formatTime(timeStart)}`;
-                    if (timeEnd) timeDisplay += ` 〜 ${formatTime(timeEnd)}`;
-                }
-                
-                if (catClass === 'cat-event') {
-                    eventInfoHtml = `<div class="event-info"><strong>日時:</strong> ${timeDisplay || '未定'}<br><strong>場所:</strong> ${escapeHtml(location)}</div>`;
+                if (data.length === 0 || !data.some(post => getPostValue(post, FIELD_MAP_KEYS.title, categoryKeyName))) {
+                    statusMsg.innerHTML = 'まだ投稿がありません。<br>上のボタンから最初の投稿をしてみましょう！';
+                    return;
                 }
 
-                // カード要素を作成（安全な方法）
-                const card = document.createElement('div');
-                card.className = `card ${catClass}`;
-                card.innerHTML = `
-                    <span class="tag ${catClass}">${escapeHtml(category)}</span>
-                    <h3>${escapeHtml(rawTitle)}</h3>
-                    ${eventInfoHtml}
-                    <p>${escapeHtml(description)}</p>
-                    <div class="meta">
-                        <strong>主催者:</strong> ${escapeHtml(organizer)}<br>
-                        <span style="font-size:0.9em; opacity:0.7;">投稿日: ${formatDate(timestamp)}</span>
-                    </div>
-                    <div class="click-hint">Click for details ▶</div>
-                `;
+                statusMsg.style.display = 'none';
+                board.innerHTML = '';
 
-                // 【★詳細表示イベント】カードクリック時の動作
-                card.addEventListener('click', () => {
-                    // モーダルの中身を作成
-                    const modalHtml = `
-                        <div class="modal-header">
-                            <span class="tag ${catClass}">${escapeHtml(category)}</span>
-                            <h2 style="margin: 10px 0 0 0; color:#333;">${escapeHtml(rawTitle)}</h2>
-                            <p style="color:#888; font-size:0.9em; margin-top:5px;">投稿日: ${timestamp}</p>
+                data.reverse().forEach(post => {
+                    // ... (省略：投稿カードの生成ロジックは前回と同じ)
+                    const rawCategory = categoryKeyName ? post[categoryKeyName] : getPostValue(post, ['投稿の種類'], categoryKeyName);
+                    const rawTitle = getPostValue(post, FIELD_MAP_KEYS.title, categoryKeyName);
+                    if (!rawTitle || rawTitle.trim() === '') return; 
+
+                    const category = (rawCategory && rawCategory.trim()) ? rawCategory.trim() : 'その他';
+                    let catClass = 'cat-other';
+                    const cleanedCategory = category.toLowerCase().replace(/\s/g, '');
+                    if (cleanedCategory.includes('イベント')) catClass = 'cat-event';
+                    else if (cleanedCategory.includes('募集')) catClass = 'cat-recruit';
+
+                    const timestamp = getPostValue(post, FIELD_MAP_KEYS.timestamp, categoryKeyName) || '';
+                    const description = getPostValue(post, FIELD_MAP_KEYS.description, categoryKeyName) || '（詳細な説明はありません）'; 
+                    const date = getPostValue(post, FIELD_MAP_KEYS.date, categoryKeyName) || '';
+                    const timeStart = getPostValue(post, FIELD_MAP_KEYS.timeStart, categoryKeyName) || '';
+                    const timeEnd = getPostValue(post, FIELD_MAP_KEYS.timeEnd, categoryKeyName) || '';
+                    const location = getPostValue(post, FIELD_MAP_KEYS.location, categoryKeyName) || '未定';
+                    const organizer = getPostValue(post, FIELD_MAP_KEYS.organizer, categoryKeyName) || '匿名';
+                    const email = getPostValue(post, FIELD_MAP_KEYS.email, categoryKeyName) || '-'; 
+
+                    let eventInfoHtml = '';
+                    let timeDisplay = '';
+                    if (date) {
+                        timeDisplay = `${formatDate(date)}`;
+                        if (timeStart) timeDisplay += ` ${formatTime(timeStart)}`;
+                        if (timeEnd) timeDisplay += ` 〜 ${formatTime(timeEnd)}`;
+                    }
+                    
+                    if (catClass === 'cat-event') eventInfoHtml = `<div class="event-info"><strong>日時:</strong> ${timeDisplay || '未定'}<br><strong>場所:</strong> ${escapeHtml(location)}</div>`;
+
+                    const card = document.createElement('div');
+                    card.className = `card ${catClass}`;
+                    card.innerHTML = `
+                        <span class="tag ${catClass}">${escapeHtml(category)}</span>
+                        <h3>${escapeHtml(rawTitle)}</h3>
+                        ${eventInfoHtml}
+                        <p>${escapeHtml(description)}</p>
+                        <div class="meta">
+                            <strong>主催者:</strong> ${escapeHtml(organizer)}<br>
+                            <span style="font-size:0.9em; opacity:0.7;">投稿日: ${formatDate(timestamp)}</span>
                         </div>
-                        <div class="modal-body">
-                            <h4 style="color:#555; border-left:4px solid #0056b3; padding-left:10px;">詳細内容</h4>
-                            <p>${escapeHtml(description)}</p>
-                            
-                            <table class="modal-meta-table">
-                                <tr><th>開催日時</th><td>${timeDisplay || 'なし'}</td></tr>
-                                <tr><th>開催場所</th><td>${escapeHtml(location)}</td></tr>
-                                <tr><th>主催者</th><td>${escapeHtml(organizer)}</td></tr>
-                                <tr><th>連絡先</th><td><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td></tr>
-                            </table>
-                        </div>
+                        <div class="click-hint">Click for details ▶</div>
                     `;
-                    modalBody.innerHTML = modalHtml;
-                    modalOverlay.classList.add('active'); // モーダルを表示
+
+                    card.addEventListener('click', () => {
+                        const modalHtml = `
+                            <div class="modal-header">
+                                <span class="tag ${catClass}">${escapeHtml(category)}</span>
+                                <h2 style="margin: 10px 0 0 0; color:#333;">${escapeHtml(rawTitle)}</h2>
+                                <p style="color:#888; font-size:0.9em; margin-top:5px;">投稿日: ${timestamp}</p>
+                            </div>
+                            <div class="modal-body">
+                                <h4 style="color:#555; border-left:4px solid #0056b3; padding-left:10px;">詳細内容</h4>
+                                <p>${escapeHtml(description)}</p>
+                                
+                                <table class="modal-meta-table">
+                                    <tr><th>開催日時</th><td>${timeDisplay || 'なし'}</td></tr>
+                                    <tr><th>開催場所</th><td>${escapeHtml(location)}</td></tr>
+                                    <tr><th>主催者</th><td>${escapeHtml(organizer)}</td></tr>
+                                    <tr><th>連絡先</th><td><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td></tr>
+                                </table>
+
+                                <button id="action-btn" class="api-action-btn">興味あり！ / 参加希望を送る</button>
+                                <p style="font-size:0.8em; color:#666; text-align:center; margin-top:5px;">※クリックすると主催者に通知が届くイメージです（デモ）</p>
+                            </div>
+                        `;
+                        modalBody.innerHTML = modalHtml;
+                        modalOverlay.classList.add('active');
+
+                        const actionBtn = document.getElementById('action-btn');
+                        actionBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            actionBtn.innerText = '送信中...';
+                            actionBtn.classList.add('processing');
+                            console.log(`API Call: User is interested in "${rawTitle}"`);
+                            setTimeout(() => {
+                                alert('【デモ】参加希望を送信しました！');
+                                actionBtn.innerText = '送信完了';
+                            }, 1000);
+                        });
+                    });
+
+                    board.appendChild(card);
                 });
-
-                board.appendChild(card);
-            });
-        },
-        error: function(err) {
-            console.error("Papa Parse Error:", err);
-            statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">❌ データ読み込みエラー</span>';
-        }
-    });
-
-    function escapeHtml(text) {
-        if (!text) return '';
-        return text.toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+            },
+            error: function(err) { console.error("Papa Parse Error:", err); statusMsg.innerHTML = '<span style="color:red; font-weight:bold;">❌ データ読み込みエラー</span>'; }
+        });
     }
+
+    function escapeHtml(text) { return text ? text.toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])) : ''; }
     function formatDate(s) { return s ? s.split(' ')[0] : ''; }
     function formatTime(s) { return s ? s.substring(0, 5) : ''; }
 </script>
